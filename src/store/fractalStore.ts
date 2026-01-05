@@ -1,0 +1,632 @@
+import { create } from 'zustand';
+import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D } from '../types';
+import { addPoint, deletePoint, updatePoint, getAllPoints, getAllCustomPalettes, addCustomPalette as dbAddCustomPalette, updateCustomPalette as dbUpdateCustomPalette, deleteCustomPalette as dbDeleteCustomPalette } from '../db/database';
+import type { RGB } from '../lib/colors';
+
+const DEFAULT_CAMERA_3D: Camera3D = {
+  distance: 2.5,
+  rotationX: 0.3,      // Pitch: slight elevation angle
+  rotationY: 0.4,      // Yaw: slight horizontal rotation for better initial view
+  fov: 60,
+};
+
+const DEFAULT_MANDELBULB_PARAMS: MandelbulbParams = {
+  power: 8,
+  bailout: 2.0,
+};
+
+const DEFAULT_LIGHTING_PARAMS: LightingParams = {
+  ambient: 0.15,
+  diffuse: 0.8,
+  specular: 0.5,
+  shininess: 32,
+  lightAngleX: 0.5,    // Horizontal angle
+  lightAngleY: 0.8,    // Vertical angle (elevation)
+};
+
+const DEFAULT_RENDER_QUALITY: RenderQuality = {
+  maxSteps: 256,
+  shadowSteps: 32,
+  aoSamples: 5,
+  detailLevel: 0.8,
+};
+
+const QUALITY_PRESETS: Record<'low' | 'medium' | 'high' | 'ultra', RenderQuality> = {
+  low: { maxSteps: 64, shadowSteps: 0, aoSamples: 0, detailLevel: 1.0 },
+  medium: { maxSteps: 256, shadowSteps: 32, aoSamples: 5, detailLevel: 0.8 },
+  high: { maxSteps: 512, shadowSteps: 64, aoSamples: 8, detailLevel: 0.6 },
+  ultra: { maxSteps: 1024, shadowSteps: 128, aoSamples: 12, detailLevel: 0.4 },
+};
+
+const DEFAULT_RENDER_QUALITY_2D: RenderQuality2D = {
+  antiAlias: 4,  // 16x AA by default for GPU (fast)
+  antiAliasCPU: 1,  // Off by default for CPU (slow)
+  precisionMode: 'auto',  // Auto-detect when high precision is needed
+  precisionSwitchZoom: 12500,  // Zoom level to switch to CPU rendering in auto mode
+};
+
+const DEFAULT_MANDELBROT_BOUNDS: ViewBounds = {
+  minReal: -2.5,
+  maxReal: 1.0,
+  minImag: -1.25,
+  maxImag: 1.25,
+};
+
+const DEFAULT_JULIA_CONSTANT: Complex = {
+  real: -0.7,
+  imag: 0.27015,
+};
+
+function getJuliaBounds(zoomFactor: number): ViewBounds {
+  const scale = 2.0 / zoomFactor;
+  return {
+    minReal: -scale,
+    maxReal: scale,
+    minImag: -scale * 0.75,
+    maxImag: scale * 0.75,
+  };
+}
+
+function getZoomFactorFromBounds(bounds: ViewBounds, fractalType: FractalType): number {
+  const realRange = bounds.maxReal - bounds.minReal;
+  // Julia default range is 4.0 at 1x, Mandelbrot default range is 3.5 at 1x
+  const baseRange = fractalType === 'julia' ? 4.0 : 3.5;
+  return baseRange / realRange;
+}
+
+function createHistoryEntry(state: {
+  viewBounds: ViewBounds;
+  fractalType: FractalType;
+  juliaConstant: Complex;
+  equationId: number;
+  juliaZoomFactor: number;
+  maxIterations: number;
+}): HistoryEntry {
+  return {
+    viewBounds: { ...state.viewBounds },
+    fractalType: state.fractalType,
+    juliaConstant: { ...state.juliaConstant },
+    equationId: state.equationId,
+    juliaZoomFactor: state.juliaZoomFactor,
+    maxIterations: state.maxIterations,
+  };
+}
+
+const initialState = {
+  viewBounds: { ...DEFAULT_MANDELBROT_BOUNDS },
+  fractalType: 'mandelbrot' as FractalType,
+  juliaConstant: { ...DEFAULT_JULIA_CONSTANT },
+  equationId: 1,
+  juliaZoomFactor: 1.0,
+  maxIterations: 256,
+};
+
+export const useFractalStore = create<FractalStore>((set, get) => ({
+  viewBounds: initialState.viewBounds,
+  maxIterations: 256,
+  renderMode: 'webgl',
+  isRendering: false,
+  selection: null,
+  history: [createHistoryEntry(initialState)],
+  historyIndex: 0,
+  fractalType: initialState.fractalType,
+  juliaConstant: initialState.juliaConstant,
+  equationId: initialState.equationId,
+  juliaZoomFactor: initialState.juliaZoomFactor,
+  showEquationSelector: false,
+  // Heat map mode state
+  heatmapPreviewConstant: null,
+  savedJulias: [],
+  cursorPosition: null,
+  thumbnailCanvas: null,
+  showSaveIndicator: false,
+  // Color system state
+  currentPaletteId: 'default',
+  colorTemperature: 0,
+  customPalettes: [],
+  showColorSelector: false,
+  // 3D Mandelbulb state
+  camera3D: { ...DEFAULT_CAMERA_3D },
+  mandelbulbParams: { ...DEFAULT_MANDELBULB_PARAMS },
+  lightingParams: { ...DEFAULT_LIGHTING_PARAMS },
+  renderQuality: { ...DEFAULT_RENDER_QUALITY },
+  renderQuality2D: { ...DEFAULT_RENDER_QUALITY_2D },
+  isHighPrecisionActive: false,
+
+  setViewBounds: (bounds) => set({ viewBounds: bounds }),
+
+  setMaxIterations: (iterations) => {
+    const { pushHistory } = get();
+    pushHistory({ maxIterations: iterations });
+  },
+
+  setRenderMode: (mode) => set({ renderMode: mode }),
+
+  setIsRendering: (rendering) => set({ isRendering: rendering }),
+
+  setSelection: (selection) => set({ selection }),
+
+  pushHistory: (changes) => {
+    const state = get();
+    const newEntry = createHistoryEntry({
+      viewBounds: changes?.viewBounds ?? state.viewBounds,
+      fractalType: changes?.fractalType ?? state.fractalType,
+      juliaConstant: changes?.juliaConstant ?? state.juliaConstant,
+      equationId: changes?.equationId ?? state.equationId,
+      juliaZoomFactor: changes?.juliaZoomFactor ?? state.juliaZoomFactor,
+      maxIterations: changes?.maxIterations ?? state.maxIterations,
+    });
+
+    const newHistory = state.history.slice(0, state.historyIndex + 1);
+    newHistory.push(newEntry);
+
+    set({
+      history: newHistory,
+      historyIndex: newHistory.length - 1,
+      viewBounds: newEntry.viewBounds,
+      fractalType: newEntry.fractalType,
+      juliaConstant: newEntry.juliaConstant,
+      equationId: newEntry.equationId,
+      juliaZoomFactor: newEntry.juliaZoomFactor,
+      maxIterations: newEntry.maxIterations,
+    });
+  },
+
+  goBack: () => {
+    const { history, historyIndex } = get();
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      const entry = history[newIndex];
+      set({
+        historyIndex: newIndex,
+        viewBounds: entry.viewBounds,
+        fractalType: entry.fractalType,
+        juliaConstant: entry.juliaConstant,
+        equationId: entry.equationId,
+        juliaZoomFactor: entry.juliaZoomFactor,
+        maxIterations: entry.maxIterations,
+      });
+      return true;
+    }
+    return false;
+  },
+
+  goForward: () => {
+    const { history, historyIndex } = get();
+    if (historyIndex < history.length - 1) {
+      const newIndex = historyIndex + 1;
+      const entry = history[newIndex];
+      set({
+        historyIndex: newIndex,
+        viewBounds: entry.viewBounds,
+        fractalType: entry.fractalType,
+        juliaConstant: entry.juliaConstant,
+        equationId: entry.equationId,
+        juliaZoomFactor: entry.juliaZoomFactor,
+        maxIterations: entry.maxIterations,
+      });
+      return true;
+    }
+    return false;
+  },
+
+  canGoBack: () => get().historyIndex > 0,
+
+  canGoForward: () => {
+    const { history, historyIndex } = get();
+    return historyIndex < history.length - 1;
+  },
+
+  zoomToSelection: (canvasWidth, canvasHeight) => {
+    const { selection, viewBounds, fractalType, pushHistory } = get();
+    if (!selection) return;
+
+    const { startX, startY, endX, endY } = selection;
+    const x1 = Math.min(startX, endX);
+    const x2 = Math.max(startX, endX);
+    const y1 = Math.min(startY, endY);
+    const y2 = Math.max(startY, endY);
+
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+
+    // Calculate the center of the selection in complex coordinates
+    const centerX = (x1 + x2) / 2;
+    const centerY = (y1 + y2) / 2;
+    const centerReal = viewBounds.minReal + (centerX / canvasWidth) * realRange;
+    const centerImag = viewBounds.maxImag - (centerY / canvasHeight) * imagRange;
+
+    // Calculate the selection dimensions in complex coordinates
+    const selectionRealRange = ((x2 - x1) / canvasWidth) * realRange;
+    const selectionImagRange = ((y2 - y1) / canvasHeight) * imagRange;
+
+    // Calculate canvas aspect ratio (real/imag)
+    const canvasAspect = (canvasWidth / canvasHeight) * (imagRange / realRange);
+
+    // Determine new dimensions that maintain canvas aspect ratio
+    // Expand to fit the larger relative dimension
+    let newRealRange: number;
+    let newImagRange: number;
+
+    const selectionAspect = selectionRealRange / selectionImagRange;
+
+    if (selectionAspect > canvasAspect) {
+      // Selection is wider - use selection width, expand height
+      newRealRange = selectionRealRange;
+      newImagRange = selectionRealRange / canvasAspect;
+    } else {
+      // Selection is taller - use selection height, expand width
+      newImagRange = selectionImagRange;
+      newRealRange = selectionImagRange * canvasAspect;
+    }
+
+    const newBounds: ViewBounds = {
+      minReal: centerReal - newRealRange / 2,
+      maxReal: centerReal + newRealRange / 2,
+      minImag: centerImag - newImagRange / 2,
+      maxImag: centerImag + newImagRange / 2,
+    };
+
+    // Calculate the new zoom factor from the bounds
+    const newZoomFactor = getZoomFactorFromBounds(newBounds, fractalType);
+    pushHistory({ viewBounds: newBounds, juliaZoomFactor: newZoomFactor });
+    set({ selection: null });
+  },
+
+  zoomAtPoint: (x, y, factor, canvasWidth, canvasHeight) => {
+    const { viewBounds, fractalType, pushHistory } = get();
+
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+
+    const pointReal = viewBounds.minReal + (x / canvasWidth) * realRange;
+    const pointImag = viewBounds.maxImag - (y / canvasHeight) * imagRange;
+
+    const newRealRange = realRange * factor;
+    const newImagRange = imagRange * factor;
+
+    const newBounds: ViewBounds = {
+      minReal: pointReal - (x / canvasWidth) * newRealRange,
+      maxReal: pointReal + ((canvasWidth - x) / canvasWidth) * newRealRange,
+      minImag: pointImag - ((canvasHeight - y) / canvasHeight) * newImagRange,
+      maxImag: pointImag + (y / canvasHeight) * newImagRange,
+    };
+
+    // Calculate the new zoom factor from the bounds
+    const newZoomFactor = getZoomFactorFromBounds(newBounds, fractalType);
+    pushHistory({ viewBounds: newBounds, juliaZoomFactor: newZoomFactor });
+  },
+
+  resetView: () => {
+    const { pushHistory } = get();
+    // Full reset to initial state
+    pushHistory({
+      viewBounds: { ...DEFAULT_MANDELBROT_BOUNDS },
+      fractalType: 'mandelbrot',
+      juliaZoomFactor: 1.0,
+      maxIterations: 256,
+      equationId: 1,
+      juliaConstant: { ...DEFAULT_JULIA_CONSTANT },
+    });
+  },
+
+  setFractalType: (type: FractalType) => set({ fractalType: type }),
+
+  setJuliaConstant: (c: Complex) => set({ juliaConstant: c }),
+
+  setEquationId: (id: number) => {
+    const { fractalType, juliaZoomFactor, pushHistory } = get();
+    if (fractalType === 'heatmap') {
+      // In heatmap mode, just change equation without resetting view
+      pushHistory({ equationId: id });
+    } else {
+      // In Julia mode, reset view bounds when changing equation
+      const bounds = getJuliaBounds(juliaZoomFactor);
+      pushHistory({ equationId: id, viewBounds: bounds });
+    }
+  },
+
+  setJuliaZoomFactor: (factor: number, commit: boolean = true) => {
+    const { fractalType, viewBounds, pushHistory } = get();
+
+    // Calculate the center of the current view
+    const centerReal = (viewBounds.minReal + viewBounds.maxReal) / 2;
+    const centerImag = (viewBounds.minImag + viewBounds.maxImag) / 2;
+
+    // Calculate new bounds centered on current view center
+    // Julia base range is 4.0, Mandelbrot/Heatmap base range is 3.5
+    const baseHalfRange = fractalType === 'julia' ? 2.0 : 1.75;
+    const aspectRatio = fractalType === 'julia' ? 0.75 : (2.5 / 3.5);
+
+    const halfRealRange = baseHalfRange / factor;
+    const halfImagRange = halfRealRange * aspectRatio;
+
+    const newBounds: ViewBounds = {
+      minReal: centerReal - halfRealRange,
+      maxReal: centerReal + halfRealRange,
+      minImag: centerImag - halfImagRange,
+      maxImag: centerImag + halfImagRange,
+    };
+
+    if (commit) {
+      pushHistory({ juliaZoomFactor: factor, viewBounds: newBounds });
+    } else {
+      // Preview mode: update state without pushing to history
+      set({ juliaZoomFactor: factor, viewBounds: newBounds });
+    }
+  },
+
+  setShowEquationSelector: (show: boolean) => set({ showEquationSelector: show }),
+
+  switchToJulia: (c: Complex) => {
+    const { pushHistory } = get();
+    // Reset to default zoom (1.0) when switching to Julia to avoid unexpected CPU mode
+    const bounds = getJuliaBounds(1.0);
+    pushHistory({
+      fractalType: 'julia',
+      juliaConstant: c,
+      viewBounds: bounds,
+      juliaZoomFactor: 1.0,
+    });
+  },
+
+  switchToMandelbrot: () => {
+    const { pushHistory } = get();
+    // Reset to default view when switching to Mandelbrot
+    pushHistory({
+      fractalType: 'mandelbrot',
+      viewBounds: { ...DEFAULT_MANDELBROT_BOUNDS },
+      juliaZoomFactor: 1.0,
+    });
+  },
+
+  // Heat map mode actions
+  switchToHeatmap: () => {
+    const { pushHistory } = get();
+    // Reset to default view when switching to Heatmap
+    pushHistory({
+      fractalType: 'heatmap',
+      viewBounds: { ...DEFAULT_MANDELBROT_BOUNDS },
+      juliaZoomFactor: 1.0,
+    });
+  },
+
+  setHeatmapPreviewConstant: (c) => set({ heatmapPreviewConstant: c }),
+
+  setCursorPosition: (pos) => set({ cursorPosition: pos }),
+
+  saveCurrentJulia: async (name?: string) => {
+    const { juliaConstant, equationId, savedJulias, thumbnailCanvas } = get();
+
+    // Generate thumbnail from canvas if available
+    let thumbnail: string | null = null;
+    if (thumbnailCanvas) {
+      // Create a smaller canvas for the thumbnail
+      const thumbCanvas = document.createElement('canvas');
+      const thumbSize = 120;
+      thumbCanvas.width = thumbSize;
+      thumbCanvas.height = thumbSize * (9 / 16); // 16:9 aspect ratio
+      const ctx = thumbCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(thumbnailCanvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+        thumbnail = thumbCanvas.toDataURL('image/jpeg', 0.7);
+      }
+    }
+
+    const pointName = name || `Point ${savedJulias.length + 1}`;
+
+    // Save to IndexedDB
+    const id = await addPoint({
+      equationId,
+      real: juliaConstant.real,
+      imag: juliaConstant.imag,
+      name: pointName,
+      thumbnail,
+    });
+
+    // Update local state and show save indicator
+    const newSaved: SavedJulia = {
+      id,
+      constant: { ...juliaConstant },
+      equationId,
+      name: pointName,
+      thumbnail,
+    };
+    set({ savedJulias: [...savedJulias, newSaved], showSaveIndicator: true });
+
+    // Auto-hide the save indicator after 1.5 seconds
+    setTimeout(() => {
+      set({ showSaveIndicator: false });
+    }, 1500);
+  },
+
+  removeSavedJulia: async (id) => {
+    const { savedJulias } = get();
+    await deletePoint(id);
+    set({ savedJulias: savedJulias.filter((s) => s.id !== id) });
+  },
+
+  loadSavedJulia: (id) => {
+    const { savedJulias, juliaZoomFactor, pushHistory } = get();
+    const saved = savedJulias.find((s) => s.id === id);
+    if (saved) {
+      const bounds = getJuliaBounds(juliaZoomFactor);
+      pushHistory({
+        fractalType: 'julia',
+        juliaConstant: saved.constant,
+        equationId: saved.equationId,
+        viewBounds: bounds,
+      });
+    }
+  },
+
+  updateSavedJulia: async (id, updates) => {
+    const { savedJulias } = get();
+
+    // Update in database
+    const dbUpdates: Record<string, unknown> = {};
+    if (updates.name !== undefined) dbUpdates.name = updates.name;
+    if (updates.constant !== undefined) {
+      dbUpdates.real = updates.constant.real;
+      dbUpdates.imag = updates.constant.imag;
+    }
+    if (updates.equationId !== undefined) dbUpdates.equationId = updates.equationId;
+    if (updates.thumbnail !== undefined) dbUpdates.thumbnail = updates.thumbnail;
+
+    await updatePoint(id, dbUpdates);
+
+    // Update local state
+    set({
+      savedJulias: savedJulias.map((s) =>
+        s.id === id ? { ...s, ...updates } : s
+      ),
+    });
+  },
+
+  loadSavedJuliasFromDb: async () => {
+    const points = await getAllPoints();
+    const savedJulias: SavedJulia[] = points.map((p) => ({
+      id: p.id,
+      constant: { real: p.real, imag: p.imag },
+      equationId: p.equationId,
+      name: p.name,
+      thumbnail: p.thumbnail,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    }));
+    set({ savedJulias });
+  },
+
+  setThumbnailCanvas: (canvas) => set({ thumbnailCanvas: canvas }),
+
+  // Color system actions
+  setCurrentPaletteId: (id: string) => set({ currentPaletteId: id }),
+
+  setColorTemperature: (temp: number) => set({ colorTemperature: temp }),
+
+  addCustomPalette: async (palette: { id: string; name: string; colors: RGB[] }) => {
+    const { customPalettes } = get();
+    // Save to database
+    await dbAddCustomPalette({
+      paletteId: palette.id,
+      name: palette.name,
+      colors: palette.colors,
+    });
+    // Update local state
+    set({ customPalettes: [...customPalettes, palette] });
+  },
+
+  removeCustomPalette: async (id: string) => {
+    const { customPalettes, currentPaletteId } = get();
+    await dbDeleteCustomPalette(id);
+    const newPalettes = customPalettes.filter((p) => p.id !== id);
+    // If removing the currently selected palette, switch to default
+    const updates: Partial<{ customPalettes: typeof customPalettes; currentPaletteId: string }> = {
+      customPalettes: newPalettes,
+    };
+    if (currentPaletteId === id) {
+      updates.currentPaletteId = 'default';
+    }
+    set(updates);
+  },
+
+  updateCustomPalette: async (id: string, updates: Partial<{ name: string; colors: RGB[] }>) => {
+    const { customPalettes } = get();
+    await dbUpdateCustomPalette(id, updates);
+    set({
+      customPalettes: customPalettes.map((p) =>
+        p.id === id ? { ...p, ...updates } : p
+      ),
+    });
+  },
+
+  setShowColorSelector: (show: boolean) => set({ showColorSelector: show }),
+
+  loadCustomPalettesFromDb: async () => {
+    const palettes = await getAllCustomPalettes();
+    const customPalettes = palettes.map((p) => ({
+      id: p.paletteId,
+      name: p.name,
+      colors: p.colors,
+    }));
+    set({ customPalettes });
+  },
+
+  // 3D Mandelbulb actions
+  switchToMandelbulb: () => {
+    set({
+      fractalType: 'mandelbulb',
+      camera3D: { ...DEFAULT_CAMERA_3D },
+    });
+  },
+
+  setCamera3D: (camera) => {
+    const { camera3D } = get();
+    set({ camera3D: { ...camera3D, ...camera } });
+  },
+
+  rotateCamera3D: (deltaX, deltaY) => {
+    const { camera3D } = get();
+    const sensitivity = 0.005;
+    set({
+      camera3D: {
+        ...camera3D,
+        rotationY: camera3D.rotationY - deltaX * sensitivity,
+        rotationX: camera3D.rotationX + deltaY * sensitivity,
+      },
+    });
+  },
+
+  zoomCamera3D: (delta) => {
+    const { camera3D } = get();
+    const zoomFactor = 1.1;
+    const newDistance = delta > 0
+      ? camera3D.distance * zoomFactor
+      : camera3D.distance / zoomFactor;
+    set({
+      camera3D: {
+        ...camera3D,
+        distance: Math.max(0.5, Math.min(20, newDistance)),
+      },
+    });
+  },
+
+  resetCamera3D: () => {
+    set({ camera3D: { ...DEFAULT_CAMERA_3D } });
+  },
+
+  setMandelbulbPower: (power) => {
+    const { mandelbulbParams } = get();
+    set({ mandelbulbParams: { ...mandelbulbParams, power } });
+  },
+
+  setFov: (fov) => {
+    const { camera3D } = get();
+    set({ camera3D: { ...camera3D, fov: Math.max(20, Math.min(120, fov)) } });
+  },
+
+  setLightingParams: (params) => {
+    const { lightingParams } = get();
+    set({ lightingParams: { ...lightingParams, ...params } });
+  },
+
+  resetLighting: () => {
+    set({ lightingParams: { ...DEFAULT_LIGHTING_PARAMS } });
+  },
+
+  setRenderQuality: (quality) => {
+    const { renderQuality } = get();
+    set({ renderQuality: { ...renderQuality, ...quality } });
+  },
+
+  setQualityPreset: (preset) => {
+    set({ renderQuality: { ...QUALITY_PRESETS[preset] } });
+  },
+
+  setRenderQuality2D: (quality) => {
+    const { renderQuality2D } = get();
+    set({ renderQuality2D: { ...renderQuality2D, ...quality } });
+  },
+
+  setHighPrecisionActive: (active) => set({ isHighPrecisionActive: active }),
+}));

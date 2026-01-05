@@ -1,0 +1,1 @@
+export { FractalCanvas } from './FractalCanvas';
