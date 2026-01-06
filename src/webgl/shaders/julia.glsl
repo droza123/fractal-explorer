@@ -29,7 +29,8 @@ vec2 cDiv(vec2 a, vec2 b) {
 }
 
 vec2 cExp(vec2 z) {
-    float er = exp(z.x);
+    // Aggressively clamp to prevent GPU issues (exp(20) ≈ 485 million)
+    float er = exp(clamp(z.x, -20.0, 20.0));
     return vec2(er * cos(z.y), er * sin(z.y));
 }
 
@@ -219,16 +220,22 @@ vec3 calculatePixel(vec2 z) {
 
     for (int i = 0; i < 10000; i++) {
         if (i >= u_maxIterations) break;
-        if (dot(z, z) > 4.0) break;
+        float mag2 = dot(z, z);
+        // Early bailout for large values and NaN check (prevents GPU overflow)
+        if (mag2 > 1e6 || mag2 != mag2) break;
+        if (mag2 > 4.0) break;
 
         z = applyEquation(z, c, u_equation);
+        // Check for overflow/NaN after equation application
+        if (z.x != z.x || z.y != z.y || abs(z.x) > 1e10 || abs(z.y) > 1e10) break;
         iterations++;
     }
 
     if (iterations >= u_maxIterations) {
         return vec3(0.0);
     } else {
-        float smoothIter = float(iterations) + 1.0 - log(log(dot(z, z)) / 2.0) / log(2.0);
+        float mag2 = max(dot(z, z), 4.0); // Ensure valid value for log
+        float smoothIter = float(iterations) + 1.0 - log(log(mag2) / 2.0) / log(2.0);
         float t = smoothIter / float(u_maxIterations);
         return getColor(t);
     }

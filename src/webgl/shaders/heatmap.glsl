@@ -12,8 +12,8 @@ uniform int u_antiAlias;  // AA samples per axis (1=off, 2=4x, 3=9x, 4=16x)
 
 out vec4 fragColor;
 
-// Sample points for Julia set evaluation
-const int NUM_SAMPLES = 8;
+// Sample points for Julia set evaluation (reduced for performance)
+const int NUM_SAMPLES = 6;
 const float SAMPLE_RADIUS = 1.5;
 
 vec3 hsv2rgb(float h, float s, float v) {
@@ -41,7 +41,9 @@ float sinh_f(float x) {
 }
 
 vec2 cExp(vec2 z) {
-    return exp(z.x) * vec2(cos(z.y), sin(z.y));
+    // Aggressively clamp to prevent GPU issues (exp(20) ≈ 485 million)
+    float ex = exp(clamp(z.x, -20.0, 20.0));
+    return ex * vec2(cos(z.y), sin(z.y));
 }
 
 vec2 cPow(vec2 z, float n) {
@@ -142,8 +144,14 @@ vec2 applyEquation(vec2 z, vec2 c, int eq) {
 int juliaEscapeTime(vec2 z, vec2 c, int maxIter) {
     for (int i = 0; i < 1000; i++) {
         if (i >= maxIter) break;
-        if (dot(z, z) > 4.0) return i;
+        float mag2 = dot(z, z);
+        // Early bailout for large values (prevents GPU overflow)
+        // Use larger threshold for exponential equations that grow fast
+        if (mag2 > 1e6 || mag2 != mag2) return i; // NaN check: x != x is true for NaN
+        if (mag2 > 4.0) return i;
         z = applyEquation(z, c, u_equation);
+        // Check for overflow/NaN after equation application
+        if (z.x != z.x || z.y != z.y || abs(z.x) > 1e10 || abs(z.y) > 1e10) return i;
     }
     return maxIter;
 }
@@ -159,26 +167,39 @@ int mandelbrotEscapeTime(vec2 c, int maxIter) {
     return maxIter;
 }
 
+// Check if equation is computationally expensive (exp-based equations)
+bool isExpensiveEquation() {
+    return u_equation == 13 || u_equation == 14 || u_equation == 15 ||
+           u_equation == 20 || u_equation == 21 || u_equation == 31 ||
+           u_equation == 35 || u_equation == 40 || u_equation == 41 ||
+           u_equation == 42 || u_equation == 43 || u_equation == 53 ||
+           u_equation == 54 || u_equation == 56;
+}
+
 // Compute "interestingness" of Julia set at point c
 float computeJuliaInterestingness(vec2 c) {
+    // Reduce iterations significantly for expensive equations
+    int maxIter = isExpensiveEquation() ? min(u_maxIterations, 32) : u_maxIterations;
+    int sampleIter = maxIter / 2;
+
     // First check if c is in/near the Mandelbrot set
-    int mandelbrotIter = mandelbrotEscapeTime(c, u_maxIterations);
+    int mandelbrotIter = mandelbrotEscapeTime(c, maxIter);
 
     // Points deep inside or far outside the Mandelbrot set are less interesting
-    float mandelbrotT = float(mandelbrotIter) / float(u_maxIterations);
+    float mandelbrotT = float(mandelbrotIter) / float(maxIter);
 
     // Sample multiple points in the Julia set
     float totalVariance = 0.0;
     float meanEscape = 0.0;
-    float escapes[8]; // NUM_SAMPLES
+    float escapes[6]; // NUM_SAMPLES
 
     // Sample points in a circle
     for (int i = 0; i < NUM_SAMPLES; i++) {
         float angle = float(i) * 6.28318530718 / float(NUM_SAMPLES);
         vec2 samplePoint = vec2(cos(angle), sin(angle)) * SAMPLE_RADIUS;
 
-        int escapeTime = juliaEscapeTime(samplePoint, c, u_maxIterations / 2);
-        float normalizedEscape = float(escapeTime) / float(u_maxIterations / 2);
+        int escapeTime = juliaEscapeTime(samplePoint, c, sampleIter);
+        float normalizedEscape = float(escapeTime) / float(sampleIter);
         escapes[i] = normalizedEscape;
         meanEscape += normalizedEscape;
     }

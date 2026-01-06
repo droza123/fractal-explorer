@@ -89,6 +89,20 @@ export interface CursorPosition {
   imag: number;
 }
 
+// AI Suggestions
+export type SuggestionCategory =
+  | 'boundary'
+  | 'classic'
+  | 'high-variance';
+
+export interface SuggestedPoint {
+  id: string;
+  point: Complex;
+  score: number;
+  category: SuggestionCategory;
+  description: string;
+}
+
 export interface FractalState {
   viewBounds: ViewBounds;
   maxIterations: number;
@@ -124,6 +138,11 @@ export interface FractalState {
   renderQuality2D: RenderQuality2D;
   // High precision rendering active (using CPU Canvas 2D)
   isHighPrecisionActive: boolean;
+  // AI Suggestions
+  suggestions: SuggestedPoint[];
+  isLoadingSuggestions: boolean;
+  showSuggestionsPanel: boolean;
+  highlightedSuggestion: string | null;
 }
 
 export interface FractalActions {
@@ -181,6 +200,12 @@ export interface FractalActions {
   // 2D quality actions
   setRenderQuality2D: (quality: Partial<RenderQuality2D>) => void;
   setHighPrecisionActive: (active: boolean) => void;
+  // AI Suggestions actions
+  generateSuggestions: () => void;
+  clearSuggestions: () => void;
+  setShowSuggestionsPanel: (show: boolean) => void;
+  setHighlightedSuggestion: (id: string | null) => void;
+  applySuggestion: (suggestion: SuggestedPoint) => void;
 }
 
 export type FractalStore = FractalState & FractalActions;

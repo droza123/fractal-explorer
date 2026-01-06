@@ -2,14 +2,17 @@ import { useRef, useEffect, useCallback, useState, useLayoutEffect, useMemo } fr
 import { useFractalStore } from '../../store/fractalStore';
 import { WebGLRenderer } from '../../webgl/renderer';
 import { PRESET_PALETTES, generateShaderPalette, applyTemperatureToPalette } from '../../lib/colors';
-import type { SelectionRect, Complex } from '../../types';
+import { getCategoryColor } from '../../lib/suggestions';
+import { SuggestionsPanel } from '../SuggestionsPanel';
+import type { SelectionRect, Complex, SuggestedPoint } from '../../types';
 
 export function HeatmapExplorer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [contextLost, setContextLost] = useState(false);
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
   const [renderKey, setRenderKey] = useState(0);
+  const [canvasKey, setCanvasKey] = useState(0); // Used to force canvas recreation
 
   const {
     viewBounds,
@@ -32,6 +35,11 @@ export function HeatmapExplorer() {
     customPalettes,
     renderQuality2D,
     setHighPrecisionActive,
+    // AI Suggestions
+    suggestions,
+    highlightedSuggestion,
+    showSuggestionsPanel,
+    clearSuggestions,
   } = useFractalStore();
 
   // Compute the shader palette based on current selection and temperature
@@ -68,28 +76,48 @@ export function HeatmapExplorer() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    rendererRef.current = new WebGLRenderer(canvas);
-
-    // Set up context loss/restoration callbacks
-    rendererRef.current.setContextLostCallback(() => {
-      console.warn('HeatmapExplorer: WebGL context lost');
-      setContextLost(true);
-    });
-
-    rendererRef.current.setContextRestoredCallback(() => {
-      console.log('HeatmapExplorer: WebGL context restored');
-      setContextLost(false);
-      setRenderKey(prev => prev + 1);
-    });
-
-    if (!rendererRef.current.isAvailable()) {
+    // Dispose existing renderer if any
+    if (rendererRef.current) {
+      rendererRef.current.dispose();
       rendererRef.current = null;
     }
 
+    const renderer = new WebGLRenderer(canvas);
+
+    // Set up context loss/restoration callbacks
+    renderer.setContextLostCallback(() => {
+      console.warn('HeatmapExplorer: WebGL context lost');
+      setWebglUnavailable(true);
+    });
+
+    renderer.setContextRestoredCallback(() => {
+      console.log('HeatmapExplorer: WebGL context restored');
+      setWebglUnavailable(false);
+      setRenderKey(prev => prev + 1);
+    });
+
+    if (!renderer.isAvailable()) {
+      console.warn('HeatmapExplorer: WebGL not available on init');
+      renderer.dispose();
+      rendererRef.current = null;
+      setWebglUnavailable(true);
+      return;
+    }
+
+    rendererRef.current = renderer;
+    setWebglUnavailable(false);
+    setRenderKey(prev => prev + 1);
+
     return () => {
-      rendererRef.current?.dispose();
+      renderer.dispose();
       rendererRef.current = null;
     };
+  }, [canvasKey]); // Re-run when canvasKey changes (retry)
+
+  // Retry GPU handler - forces canvas recreation
+  const handleRetryGPU = useCallback(() => {
+    console.log('Attempting to reinitialize WebGL with new canvas...');
+    setCanvasKey(prev => prev + 1);
   }, []);
 
   // Handle resize using ResizeObserver
@@ -119,16 +147,16 @@ export function HeatmapExplorer() {
     updateSize();
 
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [canvasKey]); // Re-run when canvas is recreated
 
   // Render heatmap
   useEffect(() => {
-    if (rendererRef.current && canvasSize.width > 0 && canvasSize.height > 0 && !contextLost) {
+    if (rendererRef.current && canvasSize.width > 0 && canvasSize.height > 0 && !webglUnavailable) {
       rendererRef.current.setFractalType('heatmap');
       rendererRef.current.setPalette(shaderPalette);
       rendererRef.current.render(viewBounds, maxIterations, 0, undefined, equationId, renderQuality2D.antiAlias);
     }
-  }, [viewBounds, maxIterations, equationId, canvasSize, shaderPalette, renderQuality2D, contextLost, renderKey]);
+  }, [viewBounds, maxIterations, equationId, canvasSize, shaderPalette, renderQuality2D, webglUnavailable, renderKey]);
 
   const getCanvasCoords = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;
@@ -153,6 +181,28 @@ export function HeatmapExplorer() {
       real: viewBounds.minReal + (x / canvas.width) * realRange,
       imag: viewBounds.maxImag - (y / canvas.height) * imagRange,
     };
+  }, [viewBounds]);
+
+  // Convert complex coordinates to screen coordinates (CSS pixels, not canvas pixels)
+  const getScreenCoords = useCallback((c: Complex): { x: number; y: number } | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+    const dpr = window.devicePixelRatio || 1;
+
+    // Check if point is in view
+    if (c.real < viewBounds.minReal || c.real > viewBounds.maxReal ||
+        c.imag < viewBounds.minImag || c.imag > viewBounds.maxImag) {
+      return null;
+    }
+
+    // Convert to CSS pixels (not canvas pixels)
+    const x = ((c.real - viewBounds.minReal) / realRange) * (canvas.width / dpr);
+    const y = ((viewBounds.maxImag - c.imag) / imagRange) * (canvas.height / dpr);
+
+    return { x, y };
   }, [viewBounds]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -294,6 +344,11 @@ export function HeatmapExplorer() {
     }
   }, [isDragging, isPanning, panStartBounds, setSelection, setCursorPosition, setViewBounds]);
 
+  // Clear suggestions when view bounds or equation change
+  useEffect(() => {
+    clearSuggestions();
+  }, [viewBounds, equationId, clearSuggestions]);
+
   // Handle spacebar for quick save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -320,6 +375,7 @@ export function HeatmapExplorer() {
   return (
     <div ref={containerRef} className="w-full h-full relative">
       <canvas
+        key={canvasKey}
         ref={canvasRef}
         className={`absolute inset-0 ${isPanning ? 'cursor-grabbing' : 'cursor-crosshair'}`}
         onMouseDown={handleMouseDown}
@@ -331,17 +387,37 @@ export function HeatmapExplorer() {
         onDoubleClick={handleDoubleClick}
       />
       {selection && <SelectionOverlay selection={selection} />}
-      {/* Context lost overlay */}
-      {contextLost && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
+
+      {/* AI Suggestion markers */}
+      {showSuggestionsPanel && suggestions.map((suggestion) => (
+        <SuggestionMarker
+          key={suggestion.id}
+          suggestion={suggestion}
+          screenCoords={getScreenCoords(suggestion.point)}
+          isHighlighted={highlightedSuggestion === suggestion.id}
+        />
+      ))}
+
+      {/* AI Suggestions Panel */}
+      <SuggestionsPanel />
+
+      {/* WebGL unavailable overlay */}
+      {webglUnavailable && (
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20">
           <div className="text-center text-white p-6">
-            <svg className="w-12 h-12 mx-auto mb-4 text-yellow-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg className="w-12 h-12 mx-auto mb-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <div className="text-lg font-medium mb-2">WebGL Context Lost</div>
-            <div className="text-sm text-gray-400">
-              The GPU ran out of resources. Attempting to recover...
+            <div className="text-lg font-medium mb-2">WebGL Unavailable</div>
+            <div className="text-sm text-gray-400 mb-4">
+              The GPU context was lost or is unavailable.
             </div>
+            <button
+              onClick={handleRetryGPU}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg font-medium transition-colors"
+            >
+              Retry GPU
+            </button>
           </div>
         </div>
       )}
@@ -372,5 +448,67 @@ function SelectionOverlay({ selection }: { selection: SelectionRect }) {
         height,
       }}
     />
+  );
+}
+
+interface SuggestionMarkerProps {
+  suggestion: SuggestedPoint;
+  screenCoords: { x: number; y: number } | null;
+  isHighlighted: boolean;
+}
+
+function SuggestionMarker({ suggestion, screenCoords, isHighlighted }: SuggestionMarkerProps) {
+  if (!screenCoords) return null;
+
+  const color = getCategoryColor(suggestion.category);
+  const size = isHighlighted ? 16 : 12;
+  const pulseClass = isHighlighted ? 'animate-pulse' : '';
+
+  return (
+    <div
+      className={`absolute pointer-events-none transform -translate-x-1/2 -translate-y-1/2 ${pulseClass}`}
+      style={{
+        left: screenCoords.x,
+        top: screenCoords.y,
+        zIndex: isHighlighted ? 5 : 4,
+      }}
+    >
+      {/* Outer ring */}
+      <div
+        className="absolute rounded-full transform -translate-x-1/2 -translate-y-1/2"
+        style={{
+          width: size + 8,
+          height: size + 8,
+          left: '50%',
+          top: '50%',
+          border: `2px solid ${color}`,
+          opacity: isHighlighted ? 0.8 : 0.5,
+        }}
+      />
+      {/* Inner dot */}
+      <div
+        className="rounded-full shadow-lg"
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: color,
+          boxShadow: isHighlighted ? `0 0 12px ${color}` : `0 0 6px ${color}`,
+        }}
+      />
+      {/* Label for highlighted suggestion */}
+      {isHighlighted && (
+        <div
+          className="absolute left-1/2 transform -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded text-xs font-medium shadow-lg"
+          style={{
+            top: size + 12,
+            backgroundColor: 'rgba(31, 41, 55, 0.95)',
+            color: color,
+            border: `1px solid ${color}40`,
+          }}
+        >
+          {suggestion.description}
+        </div>
+      )}
+    </div>
   );
 }

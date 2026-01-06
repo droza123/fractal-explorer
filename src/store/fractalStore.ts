@@ -1,7 +1,8 @@
 import { create } from 'zustand';
-import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D } from '../types';
+import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint } from '../types';
 import { addPoint, deletePoint, updatePoint, getAllPoints, getAllCustomPalettes, addCustomPalette as dbAddCustomPalette, updateCustomPalette as dbUpdateCustomPalette, deleteCustomPalette as dbDeleteCustomPalette } from '../db/database';
 import type { RGB } from '../lib/colors';
+import { getSuggestions } from '../lib/suggestions';
 
 const DEFAULT_CAMERA_3D: Camera3D = {
   distance: 2.5,
@@ -132,6 +133,11 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   renderQuality: { ...DEFAULT_RENDER_QUALITY },
   renderQuality2D: { ...DEFAULT_RENDER_QUALITY_2D },
   isHighPrecisionActive: false,
+  // AI Suggestions
+  suggestions: [],
+  isLoadingSuggestions: false,
+  showSuggestionsPanel: true,
+  highlightedSuggestion: null,
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
 
@@ -629,4 +635,52 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   },
 
   setHighPrecisionActive: (active) => set({ isHighPrecisionActive: active }),
+
+  // AI Suggestions actions
+  generateSuggestions: () => {
+    const { viewBounds, maxIterations, fractalType, equationId } = get();
+
+    // Only generate suggestions in heatmap mode
+    if (fractalType !== 'heatmap') return;
+
+    set({ isLoadingSuggestions: true });
+
+    // Most equations other than z²+c need reduced parameters to avoid hanging
+    // Equation 1 is fast, everything else needs care
+    const isSimpleEquation = equationId === 1;
+    const adjustedMaxIter = isSimpleEquation ? Math.min(maxIterations, 100) : Math.min(maxIterations, 30);
+
+    // Run suggestion generation with timeout protection
+    const timeoutId = setTimeout(() => {
+      // If still loading after 5 seconds, give up
+      const state = get();
+      if (state.isLoadingSuggestions) {
+        console.warn('Suggestion generation timed out for equation', equationId);
+        set({ suggestions: [], isLoadingSuggestions: false });
+      }
+    }, 5000);
+
+    setTimeout(() => {
+      try {
+        const suggestions = getSuggestions(viewBounds, adjustedMaxIter, true, equationId, !isSimpleEquation);
+        clearTimeout(timeoutId);
+        set({ suggestions, isLoadingSuggestions: false });
+      } catch (e) {
+        console.error('Error generating suggestions:', e);
+        clearTimeout(timeoutId);
+        set({ suggestions: [], isLoadingSuggestions: false });
+      }
+    }, 0);
+  },
+
+  clearSuggestions: () => set({ suggestions: [], highlightedSuggestion: null }),
+
+  setShowSuggestionsPanel: (show) => set({ showSuggestionsPanel: show }),
+
+  setHighlightedSuggestion: (id) => set({ highlightedSuggestion: id }),
+
+  applySuggestion: (suggestion: SuggestedPoint) => {
+    const { switchToJulia } = get();
+    switchToJulia(suggestion.point);
+  },
 }));
