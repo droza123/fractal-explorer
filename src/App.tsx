@@ -5,6 +5,7 @@ import { Mandelbulb3D } from './components/Mandelbulb3D';
 import { Toolbar } from './components/Toolbar';
 import { EquationSelector } from './components/EquationSelector';
 import { ColorPaletteSelector } from './components/ColorPaletteSelector';
+import { ExportDialog } from './components/ExportDialog';
 import { useFractalStore } from './store/fractalStore';
 
 function App() {
@@ -35,6 +36,7 @@ function App() {
       <Toolbar />
       <EquationSelector />
       <ColorPaletteSelector />
+      <ExportDialog />
     </div>
   );
 }

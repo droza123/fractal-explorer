@@ -143,6 +143,28 @@ export interface FractalState {
   isLoadingSuggestions: boolean;
   showSuggestionsPanel: boolean;
   highlightedSuggestion: string | null;
+  // Image Export
+  showExportDialog: boolean;
+  isExporting: boolean;
+  exportProgress: ExportProgress | null;
+  exportSettings: ExportSettings;
+  exportAbortController: AbortController | null;
+}
+
+// Image Export
+export interface ExportSettings {
+  width: number;
+  height: number;
+  format: 'png' | 'jpeg' | 'webp';
+  quality: number; // 0.1-1.0 for JPEG/WebP
+  aspectLocked: boolean;
+}
+
+export interface ExportProgress {
+  phase: 'preparing' | 'rendering' | 'assembling' | 'encoding' | 'complete';
+  currentTile: number;
+  totalTiles: number;
+  percent: number;
 }
 
 export interface FractalActions {
@@ -206,6 +228,12 @@ export interface FractalActions {
   setShowSuggestionsPanel: (show: boolean) => void;
   setHighlightedSuggestion: (id: string | null) => void;
   applySuggestion: (suggestion: SuggestedPoint) => void;
+  // Image Export actions
+  setShowExportDialog: (show: boolean) => void;
+  setExportSettings: (settings: Partial<ExportSettings>) => void;
+  startExport: () => Promise<void>;
+  cancelExport: () => void;
+  setExportProgress: (progress: ExportProgress | null) => void;
 }
 
 export type FractalStore = FractalState & FractalActions;

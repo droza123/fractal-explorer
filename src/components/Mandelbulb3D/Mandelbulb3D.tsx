@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo, useLayoutEffect } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { WebGLRenderer, checkWebGLSupport } from '../../webgl/renderer';
 import { PRESET_PALETTES, generateShaderPalette, applyTemperatureToPalette } from '../../lib/colors';
@@ -46,6 +46,7 @@ export function Mandelbulb3D() {
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [contextLost, setContextLost] = useState(false);
   const [renderKey, setRenderKey] = useState(0); // Used to trigger re-renders after context restoration
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   // 3D always uses WebGL, so clear the high precision flag
   useEffect(() => {
@@ -88,29 +89,34 @@ export function Mandelbulb3D() {
     };
   }, [setRenderMode]);
 
-  // Handle resize
-  useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
+  // Handle resize using ResizeObserver to catch sidebar/panel changes
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
 
+    const updateSize = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
       const width = Math.floor(rect.width * dpr);
       const height = Math.floor(rect.height * dpr);
 
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      if (width > 0 && height > 0) {
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
 
-      rendererRef.current?.resize(width, height);
+        rendererRef.current?.resize(width, height);
+        setCanvasSize({ width, height });
+      }
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+    updateSize();
+
+    return () => resizeObserver.disconnect();
   }, []);
 
   // Render the Mandelbulb
@@ -121,7 +127,7 @@ export function Mandelbulb3D() {
     rendererRef.current.setFractalType('mandelbulb');
     rendererRef.current.setPalette(shaderPalette);
     rendererRef.current.render3D(camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, 0);
-  }, [camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, shaderPalette, contextLost, renderKey]);
+  }, [camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, shaderPalette, contextLost, renderKey, canvasSize]);
 
   const getCanvasCoords = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;

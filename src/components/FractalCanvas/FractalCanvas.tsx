@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, useMemo } from 'react';
+import { useRef, useEffect, useCallback, useState, useMemo, useLayoutEffect } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { WebGLRenderer, checkWebGLSupport } from '../../webgl/renderer';
 import { renderCanvas2DParallel } from '../../lib/canvas2dRenderer';
@@ -17,6 +17,7 @@ export function FractalCanvas() {
   const currentRenderIdRef = useRef(0); // Track current render to avoid stale callbacks
   const [contextLost, setContextLost] = useState(false);
   const [renderKey, setRenderKey] = useState(0); // Used to trigger re-renders after context restoration
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   const {
     viewBounds,
@@ -103,37 +104,43 @@ export function FractalCanvas() {
     };
   }, [setRenderMode]);
 
-  useEffect(() => {
-    const handleResize = () => {
-      const canvas = canvasRef.current;
-      const canvas2D = canvas2DRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
+  // Handle resize using ResizeObserver to catch sidebar/panel changes
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    const canvas2D = canvas2DRef.current;
+    if (!container || !canvas) return;
 
+    const updateSize = () => {
       const dpr = window.devicePixelRatio || 1;
       const rect = container.getBoundingClientRect();
       const width = Math.floor(rect.width * dpr);
       const height = Math.floor(rect.height * dpr);
 
-      canvas.width = width;
-      canvas.height = height;
-      canvas.style.width = `${rect.width}px`;
-      canvas.style.height = `${rect.height}px`;
+      if (width > 0 && height > 0) {
+        canvas.width = width;
+        canvas.height = height;
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
 
-      // Also resize the 2D canvas if it exists
-      if (canvas2D) {
-        canvas2D.width = width;
-        canvas2D.height = height;
-        canvas2D.style.width = `${rect.width}px`;
-        canvas2D.style.height = `${rect.height}px`;
+        // Also resize the 2D canvas if it exists
+        if (canvas2D) {
+          canvas2D.width = width;
+          canvas2D.height = height;
+          canvas2D.style.width = `${rect.width}px`;
+          canvas2D.style.height = `${rect.height}px`;
+        }
+
+        rendererRef.current?.resize(width, height);
+        setCanvasSize({ width, height });
       }
-
-      rendererRef.current?.resize(width, height);
     };
 
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+    updateSize();
+
+    return () => resizeObserver.disconnect();
   }, []);
 
   useEffect(() => {
@@ -232,7 +239,7 @@ export function FractalCanvas() {
         clearTimeout(renderDebounceRef.current);
       }
     };
-  }, [viewBounds, maxIterations, renderMode, fractalType, juliaConstant, equationId, shaderPalette, renderQuality2D, contextLost, renderKey]);
+  }, [viewBounds, maxIterations, renderMode, fractalType, juliaConstant, equationId, shaderPalette, renderQuality2D, contextLost, renderKey, canvasSize]);
 
   const getCanvasCoords = useCallback((e: React.MouseEvent) => {
     const canvas = showCanvas2D ? canvas2DRef.current : canvasRef.current;

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint } from '../types';
+import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint, ExportSettings, ExportProgress } from '../types';
 import { addPoint, deletePoint, updatePoint, getAllPoints, getAllCustomPalettes, addCustomPalette as dbAddCustomPalette, updateCustomPalette as dbUpdateCustomPalette, deleteCustomPalette as dbDeleteCustomPalette } from '../db/database';
 import type { RGB } from '../lib/colors';
 import { getSuggestions } from '../lib/suggestions';
@@ -44,6 +44,35 @@ const DEFAULT_RENDER_QUALITY_2D: RenderQuality2D = {
   antiAliasCPU: 1,  // Off by default for CPU (slow)
   precisionMode: 'auto',  // Auto-detect when high precision is needed
   precisionSwitchZoom: 12500,  // Zoom level to switch to CPU rendering in auto mode
+};
+
+// Load export settings from localStorage or use defaults
+function loadExportSettings(): ExportSettings {
+  try {
+    const stored = localStorage.getItem('fractal-export-settings');
+    if (stored) {
+      return { ...DEFAULT_EXPORT_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch (e) {
+    console.warn('Failed to load export settings from localStorage:', e);
+  }
+  return { ...DEFAULT_EXPORT_SETTINGS };
+}
+
+function saveExportSettings(settings: ExportSettings): void {
+  try {
+    localStorage.setItem('fractal-export-settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('Failed to save export settings to localStorage:', e);
+  }
+}
+
+const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
+  width: 1920,
+  height: 1080,
+  format: 'png',
+  quality: 0.92,
+  aspectLocked: true,
 };
 
 const DEFAULT_MANDELBROT_BOUNDS: ViewBounds = {
@@ -138,6 +167,12 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   isLoadingSuggestions: false,
   showSuggestionsPanel: true,
   highlightedSuggestion: null,
+  // Image Export
+  showExportDialog: false,
+  isExporting: false,
+  exportProgress: null,
+  exportSettings: loadExportSettings(),
+  exportAbortController: null,
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
 
@@ -682,5 +717,64 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   applySuggestion: (suggestion: SuggestedPoint) => {
     const { switchToJulia } = get();
     switchToJulia(suggestion.point);
+  },
+
+  // Image Export actions
+  setShowExportDialog: (show) => set({ showExportDialog: show }),
+
+  setExportSettings: (settings) => {
+    const { exportSettings } = get();
+    const newSettings = { ...exportSettings, ...settings };
+    saveExportSettings(newSettings);
+    set({ exportSettings: newSettings });
+  },
+
+  setExportProgress: (progress) => set({ exportProgress: progress }),
+
+  startExport: async () => {
+    // Import dynamically to avoid circular dependencies
+    const { exportImage } = await import('../lib/imageExporter');
+    const state = get();
+
+    const abortController = new AbortController();
+    set({ isExporting: true, exportAbortController: abortController });
+
+    try {
+      await exportImage({
+        fractalType: state.fractalType,
+        viewBounds: state.viewBounds,
+        juliaConstant: state.juliaConstant,
+        equationId: state.equationId,
+        maxIterations: state.maxIterations,
+        paletteId: state.currentPaletteId,
+        colorTemperature: state.colorTemperature,
+        customPalettes: state.customPalettes,
+        exportSettings: state.exportSettings,
+        camera3D: state.camera3D,
+        mandelbulbParams: state.mandelbulbParams,
+        lightingParams: state.lightingParams,
+        renderQuality: state.renderQuality,
+        onProgress: (progress: ExportProgress) => {
+          set({ exportProgress: progress });
+        },
+        abortSignal: abortController.signal,
+      });
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        console.log('Export cancelled');
+      } else {
+        console.error('Export failed:', e);
+        throw e;
+      }
+    } finally {
+      set({ isExporting: false, exportProgress: null, exportAbortController: null });
+    }
+  },
+
+  cancelExport: () => {
+    const { exportAbortController } = get();
+    if (exportAbortController) {
+      exportAbortController.abort();
+    }
   },
 }));
