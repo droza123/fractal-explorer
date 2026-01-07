@@ -6,18 +6,21 @@ import { Toolbar } from './components/Toolbar';
 import { EquationSelector } from './components/EquationSelector';
 import { ColorPaletteSelector } from './components/ColorPaletteSelector';
 import { ExportDialog } from './components/ExportDialog';
+import { VideoExportDialog } from './components/VideoExportDialog';
 import { useFractalStore } from './store/fractalStore';
 
 function App() {
   const fractalType = useFractalStore((state) => state.fractalType);
   const loadSavedJuliasFromDb = useFractalStore((state) => state.loadSavedJuliasFromDb);
   const loadCustomPalettesFromDb = useFractalStore((state) => state.loadCustomPalettesFromDb);
+  const loadAnimationsFromDb = useFractalStore((state) => state.loadAnimationsFromDb);
 
-  // Load saved julias and custom palettes from database on startup
+  // Load saved julias, custom palettes, and animations from database on startup
   useEffect(() => {
     loadSavedJuliasFromDb();
     loadCustomPalettesFromDb();
-  }, [loadSavedJuliasFromDb, loadCustomPalettesFromDb]);
+    loadAnimationsFromDb();
+  }, [loadSavedJuliasFromDb, loadCustomPalettesFromDb, loadAnimationsFromDb]);
 
   const renderFractalView = () => {
     switch (fractalType) {
@@ -37,6 +40,7 @@ function App() {
       <EquationSelector />
       <ColorPaletteSelector />
       <ExportDialog />
+      <VideoExportDialog />
     </div>
   );
 }

@@ -153,6 +153,20 @@ export interface FractalState {
   qualityCollapsed: boolean;
   savedJuliasCollapsed: boolean;
   infoCollapsed: boolean;
+  // Animation System
+  keyframes: AnimationKeyframe[];
+  selectedKeyframeId: string | null;
+  savedAnimations: Animation[];
+  currentAnimationId: number | null;
+  animationPlayback: AnimationPlaybackState;
+  // Video Export
+  showVideoExportDialog: boolean;
+  isExportingVideo: boolean;
+  videoExportProgress: VideoExportProgress | null;
+  videoExportSettings: VideoExportSettings;
+  videoExportAbortController: AbortController | null;
+  // Animation UI
+  animationPanelCollapsed: boolean;
 }
 
 // Image Export
@@ -185,6 +199,7 @@ export interface FractalActions {
   canGoForward: () => boolean;
   zoomToSelection: (canvasWidth: number, canvasHeight: number) => void;
   zoomAtPoint: (x: number, y: number, factor: number, canvasWidth: number, canvasHeight: number) => void;
+  zoomAtPointAnimated: (x: number, y: number, factor: number, canvasWidth: number, canvasHeight: number) => void;
   resetView: () => void;
   setFractalType: (type: FractalType) => void;
   setJuliaConstant: (c: Complex) => void;
@@ -244,6 +259,112 @@ export interface FractalActions {
   setQualityCollapsed: (collapsed: boolean) => void;
   setSavedJuliasCollapsed: (collapsed: boolean) => void;
   setInfoCollapsed: (collapsed: boolean) => void;
+  // Animation System actions
+  setAnimationPanelCollapsed: (collapsed: boolean) => void;
+  addKeyframe: () => void;
+  removeKeyframe: (id: string) => void;
+  updateKeyframe: (id: string, updates: Partial<AnimationKeyframe>) => void;
+  reorderKeyframes: (fromIndex: number, toIndex: number) => void;
+  selectKeyframe: (id: string | null) => void;
+  applyKeyframe: (id: string) => void;
+  clearKeyframes: () => void;
+  // Animation playback
+  setAnimationPlayback: (playback: Partial<AnimationPlaybackState>) => void;
+  applyAnimationState: (state: {
+    viewBounds: ViewBounds;
+    fractalType: 'mandelbrot' | 'julia';
+    juliaConstant: Complex;
+    equationId: number;
+    juliaZoomFactor: number;
+    maxIterations: number;
+    currentPaletteId: string;
+    colorTemperature: number;
+  }) => void;
+  // Saved animations
+  saveAnimation: (name: string) => Promise<number | undefined>;
+  loadAnimation: (id: number) => Promise<void>;
+  deleteAnimation: (id: number) => Promise<void>;
+  loadAnimationsFromDb: () => Promise<void>;
+  updateSavedAnimation: (id: number, updates: Partial<Animation>) => Promise<void>;
+  // Video Export actions
+  setShowVideoExportDialog: (show: boolean) => void;
+  setVideoExportSettings: (settings: Partial<VideoExportSettings>) => void;
+  setVideoExportProgress: (progress: VideoExportProgress | null) => void;
+  setIsExportingVideo: (exporting: boolean) => void;
+  setVideoExportAbortController: (controller: AbortController | null) => void;
+  cancelVideoExport: () => void;
 }
 
 export type FractalStore = FractalState & FractalActions;
+
+// Animation System Types
+export type EasingFunction = 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
+
+export interface AnimationKeyframe {
+  id: string;
+  timestamp: number;           // Position in timeline (ms from start)
+  duration: number;            // Time to next keyframe (ms)
+  easing: EasingFunction;
+  // Captured fractal state
+  viewBounds: ViewBounds;
+  fractalType: 'mandelbrot' | 'julia';
+  juliaConstant: Complex;
+  equationId: number;
+  juliaZoomFactor: number;
+  maxIterations: number;
+  currentPaletteId: string;
+  colorTemperature: number;
+  // Metadata
+  thumbnail: string | null;
+  name?: string;
+}
+
+export interface Animation {
+  id?: number;
+  name: string;
+  keyframes: AnimationKeyframe[];
+  totalDuration: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type VideoRenderQuality = 'standard' | 'high' | 'ultra';
+
+// Precision mode for video export rendering
+export type VideoRenderPrecision = 'auto' | 'gpu' | 'cpu';
+
+export interface VideoExportSettings {
+  format: 'webm' | 'mp4';
+  fps: 30 | 60;
+  resolution: 'canvas' | '720p' | '1080p' | '4k' | 'custom';
+  customWidth?: number;
+  customHeight?: number;
+  quality: number;                // Bitrate quality 0.1-1.0
+  codec: 'vp9' | 'vp8' | 'h264';
+  renderQuality: VideoRenderQuality;
+  renderPrecision: VideoRenderPrecision;  // GPU (fast) vs CPU (high precision for deep zooms)
+}
+
+export interface AnimationPlaybackState {
+  isPlaying: boolean;
+  isPreviewing: boolean;
+  currentTime: number;           // Current position in ms
+  playbackSpeed: number;         // 0.25, 0.5, 1, 2
+}
+
+export interface VideoExportProgress {
+  phase: 'loading' | 'preparing' | 'rendering' | 'writing' | 'encoding' | 'finalizing' | 'complete';
+  currentFrame: number;
+  totalFrames: number;
+  percent: number;
+}
+
+// File System Access API types (for browsers that support it)
+declare global {
+  interface Window {
+    showDirectoryPicker?: (options?: {
+      mode?: 'read' | 'readwrite';
+      startIn?: 'desktop' | 'documents' | 'downloads' | 'music' | 'pictures' | 'videos';
+    }) => Promise<FileSystemDirectoryHandle>;
+  }
+}

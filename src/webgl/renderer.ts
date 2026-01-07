@@ -205,13 +205,9 @@ export class WebGLRenderer {
     // HP programs are optional - continue if they fail (will fall back to standard precision)
     if (!this.mandelbrotHPProgram) {
       console.warn('High-precision Mandelbrot shader not available');
-    } else {
-      console.log('High-precision Mandelbrot shader compiled successfully');
     }
     if (!this.juliaHPProgram) {
       console.warn('High-precision Julia shader not available');
-    } else {
-      console.log('High-precision Julia shader compiled successfully');
     }
 
     this.setupGeometry();

@@ -20,14 +20,30 @@ export interface CustomPalette {
   updatedAt: Date;
 }
 
+export interface SavedAnimation {
+  id?: number;
+  name: string;
+  keyframes: string;             // JSON stringified AnimationKeyframe[]
+  totalDuration: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 const db = new Dexie('FractalExplorer') as Dexie & {
   savedPoints: EntityTable<SavedPoint, 'id'>;
   customPalettes: EntityTable<CustomPalette, 'id'>;
+  animations: EntityTable<SavedAnimation, 'id'>;
 };
 
 db.version(2).stores({
   savedPoints: '++id, equationId, createdAt',
   customPalettes: '++id, paletteId, createdAt',
+});
+
+db.version(3).stores({
+  savedPoints: '++id, equationId, createdAt',
+  customPalettes: '++id, paletteId, createdAt',
+  animations: '++id, name, createdAt',
 });
 
 export { db };

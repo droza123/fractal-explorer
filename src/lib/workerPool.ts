@@ -72,8 +72,13 @@ export class WorkerPool {
   }
 
   private handleWorkerError(state: WorkerState, error: ErrorEvent): void {
+    // Extract detailed error info
+    const errorMessage = error.message || 'Unknown worker error';
+    const errorDetails = error.filename ? ` at ${error.filename}:${error.lineno}:${error.colno}` : '';
+    console.error('[WorkerPool] Worker error:', errorMessage + errorDetails, error);
+
     if (state.currentTask) {
-      state.currentTask.reject(new Error(error.message));
+      state.currentTask.reject(new Error(errorMessage + errorDetails));
       state.currentTask = null;
       state.busy = false;
       this.processQueue();

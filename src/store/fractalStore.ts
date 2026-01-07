@@ -1,9 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint, ExportSettings, ExportProgress } from '../types';
+import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint, ExportSettings, ExportProgress, AnimationKeyframe, Animation, AnimationPlaybackState, VideoExportSettings, VideoExportProgress } from '../types';
 import { addPoint, deletePoint, updatePoint, getAllPoints, getAllCustomPalettes, addCustomPalette as dbAddCustomPalette, updateCustomPalette as dbUpdateCustomPalette, deleteCustomPalette as dbDeleteCustomPalette } from '../db/database';
+import { getAllAnimations, addAnimation as dbAddAnimation, updateAnimation as dbUpdateAnimation, deleteAnimation as dbDeleteAnimation } from '../db/animations';
 import type { RGB } from '../lib/colors';
 import { getSuggestions } from '../lib/suggestions';
+import { calculateTotalDuration } from '../lib/animation/interpolation';
+import { generateKeyframeThumbnail } from '../lib/animation/thumbnailGenerator';
+import { ViewBoundsAnimator } from '../lib/animation/viewBoundsAnimator';
+
+// Global zoom animator instance (not stored in state to avoid serialization issues)
+let zoomAnimator: ViewBoundsAnimator | null = null;
 
 const DEFAULT_CAMERA_3D: Camera3D = {
   distance: 2.5,
@@ -75,6 +82,44 @@ const DEFAULT_EXPORT_SETTINGS: ExportSettings = {
   quality: 0.92,
   aspectLocked: true,
 };
+
+const DEFAULT_VIDEO_EXPORT_SETTINGS: VideoExportSettings = {
+  format: 'webm',
+  fps: 30,
+  resolution: '1080p',
+  quality: 0.8,
+  codec: 'vp9',
+  renderQuality: 'standard',
+  renderPrecision: 'auto',
+};
+
+const DEFAULT_ANIMATION_PLAYBACK: AnimationPlaybackState = {
+  isPlaying: false,
+  isPreviewing: false,
+  currentTime: 0,
+  playbackSpeed: 1,
+};
+
+// Load video export settings from localStorage or use defaults
+function loadVideoExportSettings(): VideoExportSettings {
+  try {
+    const stored = localStorage.getItem('fractal-video-export-settings');
+    if (stored) {
+      return { ...DEFAULT_VIDEO_EXPORT_SETTINGS, ...JSON.parse(stored) };
+    }
+  } catch (e) {
+    console.warn('Failed to load video export settings from localStorage:', e);
+  }
+  return { ...DEFAULT_VIDEO_EXPORT_SETTINGS };
+}
+
+function saveVideoExportSettings(settings: VideoExportSettings): void {
+  try {
+    localStorage.setItem('fractal-video-export-settings', JSON.stringify(settings));
+  } catch (e) {
+    console.warn('Failed to save video export settings to localStorage:', e);
+  }
+}
 
 const DEFAULT_MANDELBROT_BOUNDS: ViewBounds = {
   minReal: -2.5,
@@ -180,6 +225,20 @@ export const useFractalStore = create<FractalStore>()(
   qualityCollapsed: false,
   savedJuliasCollapsed: false,
   infoCollapsed: false,
+  // Animation System
+  keyframes: [] as AnimationKeyframe[],
+  selectedKeyframeId: null as string | null,
+  savedAnimations: [] as Animation[],
+  currentAnimationId: null as number | null,
+  animationPlayback: { ...DEFAULT_ANIMATION_PLAYBACK },
+  // Video Export
+  showVideoExportDialog: false,
+  isExportingVideo: false,
+  videoExportProgress: null as VideoExportProgress | null,
+  videoExportSettings: loadVideoExportSettings(),
+  videoExportAbortController: null as AbortController | null,
+  // Animation UI
+  animationPanelCollapsed: true,
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
 
@@ -353,6 +412,73 @@ export const useFractalStore = create<FractalStore>()(
     // Calculate the new zoom factor from the bounds
     const newZoomFactor = getZoomFactorFromBounds(newBounds, fractalType);
     pushHistory({ viewBounds: newBounds, juliaZoomFactor: newZoomFactor });
+  },
+
+  zoomAtPointAnimated: (x, y, factor, canvasWidth, canvasHeight) => {
+    const { viewBounds, pushHistory } = get();
+
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+
+    const pointReal = viewBounds.minReal + (x / canvasWidth) * realRange;
+    const pointImag = viewBounds.maxImag - (y / canvasHeight) * imagRange;
+
+    const newRealRange = realRange * factor;
+    const newImagRange = imagRange * factor;
+
+    const targetBounds: ViewBounds = {
+      minReal: pointReal - (x / canvasWidth) * newRealRange,
+      maxReal: pointReal + ((canvasWidth - x) / canvasWidth) * newRealRange,
+      minImag: pointImag - ((canvasHeight - y) / canvasHeight) * newImagRange,
+      maxImag: pointImag + (y / canvasHeight) * newImagRange,
+    };
+
+    // Initialize animator if needed
+    if (!zoomAnimator) {
+      zoomAnimator = new ViewBoundsAnimator({
+        onUpdate: (bounds) => {
+          // Update view without pushing to history
+          set({ viewBounds: bounds });
+        },
+        onComplete: (bounds) => {
+          // Push to history when animation completes
+          const currentFractalType = get().fractalType;
+          const finalZoomFactor = getZoomFactorFromBounds(bounds, currentFractalType);
+          pushHistory({ viewBounds: bounds, juliaZoomFactor: finalZoomFactor });
+        },
+        duration: 150,
+        easing: 'ease-out',
+      });
+    }
+
+    // If already animating, update target (accumulate rapid scrolls)
+    if (zoomAnimator.getIsAnimating()) {
+      // Calculate new target relative to current target
+      const currentTarget = zoomAnimator.getTargetBounds();
+      if (currentTarget) {
+        const targetRealRange = currentTarget.maxReal - currentTarget.minReal;
+        const targetImagRange = currentTarget.maxImag - currentTarget.minImag;
+
+        const targetPointReal = currentTarget.minReal + (x / canvasWidth) * targetRealRange;
+        const targetPointImag = currentTarget.maxImag - (y / canvasHeight) * targetImagRange;
+
+        const accumulatedRealRange = targetRealRange * factor;
+        const accumulatedImagRange = targetImagRange * factor;
+
+        const accumulatedBounds: ViewBounds = {
+          minReal: targetPointReal - (x / canvasWidth) * accumulatedRealRange,
+          maxReal: targetPointReal + ((canvasWidth - x) / canvasWidth) * accumulatedRealRange,
+          minImag: targetPointImag - ((canvasHeight - y) / canvasHeight) * accumulatedImagRange,
+          maxImag: targetPointImag + (y / canvasHeight) * accumulatedImagRange,
+        };
+
+        zoomAnimator.updateTarget(accumulatedBounds);
+        return;
+      }
+    }
+
+    // Start new animation
+    zoomAnimator.animateTo(viewBounds, targetBounds);
   },
 
   resetView: () => {
@@ -801,6 +927,200 @@ export const useFractalStore = create<FractalStore>()(
   setQualityCollapsed: (collapsed) => set({ qualityCollapsed: collapsed }),
   setSavedJuliasCollapsed: (collapsed) => set({ savedJuliasCollapsed: collapsed }),
   setInfoCollapsed: (collapsed) => set({ infoCollapsed: collapsed }),
+
+  // Animation System actions
+  setAnimationPanelCollapsed: (collapsed) => set({ animationPanelCollapsed: collapsed }),
+
+  addKeyframe: () => {
+    const state = get();
+    // Only allow adding keyframes for 2D fractals (mandelbrot, julia)
+    if (state.fractalType !== 'mandelbrot' && state.fractalType !== 'julia') {
+      console.warn('Animation only supports Mandelbrot and Julia fractals');
+      return;
+    }
+
+    // Generate thumbnail from current canvas
+    const thumbnail = generateKeyframeThumbnail(state.thumbnailCanvas);
+
+    const newKeyframe: AnimationKeyframe = {
+      id: crypto.randomUUID(),
+      timestamp: calculateTotalDuration(state.keyframes),
+      duration: 2000, // Default 2 second transition
+      easing: 'ease-in-out',
+      viewBounds: { ...state.viewBounds },
+      fractalType: state.fractalType,
+      juliaConstant: { ...state.juliaConstant },
+      equationId: state.equationId,
+      juliaZoomFactor: state.juliaZoomFactor,
+      maxIterations: state.maxIterations,
+      currentPaletteId: state.currentPaletteId,
+      colorTemperature: state.colorTemperature,
+      thumbnail,
+    };
+
+    set({ keyframes: [...state.keyframes, newKeyframe] });
+  },
+
+  removeKeyframe: (id) => {
+    const { keyframes } = get();
+    const newKeyframes = keyframes.filter((kf) => kf.id !== id);
+    set({
+      keyframes: newKeyframes,
+      selectedKeyframeId: get().selectedKeyframeId === id ? null : get().selectedKeyframeId,
+    });
+  },
+
+  updateKeyframe: (id, updates) => {
+    const { keyframes } = get();
+    set({
+      keyframes: keyframes.map((kf) =>
+        kf.id === id ? { ...kf, ...updates } : kf
+      ),
+    });
+  },
+
+  reorderKeyframes: (fromIndex, toIndex) => {
+    const { keyframes } = get();
+    const newKeyframes = [...keyframes];
+    const [removed] = newKeyframes.splice(fromIndex, 1);
+    newKeyframes.splice(toIndex, 0, removed);
+    // Recalculate timestamps
+    let timestamp = 0;
+    const updatedKeyframes = newKeyframes.map((kf, index) => {
+      const updated = { ...kf, timestamp };
+      if (index < newKeyframes.length - 1) {
+        timestamp += kf.duration;
+      }
+      return updated;
+    });
+    set({ keyframes: updatedKeyframes });
+  },
+
+  selectKeyframe: (id) => set({ selectedKeyframeId: id }),
+
+  applyKeyframe: (id) => {
+    const { keyframes } = get();
+    const keyframe = keyframes.find((kf) => kf.id === id);
+    if (keyframe) {
+      set({
+        viewBounds: { ...keyframe.viewBounds },
+        fractalType: keyframe.fractalType,
+        juliaConstant: { ...keyframe.juliaConstant },
+        equationId: keyframe.equationId,
+        juliaZoomFactor: keyframe.juliaZoomFactor,
+        maxIterations: keyframe.maxIterations,
+        currentPaletteId: keyframe.currentPaletteId,
+        colorTemperature: keyframe.colorTemperature,
+      });
+    }
+  },
+
+  clearKeyframes: () => set({
+    keyframes: [],
+    selectedKeyframeId: null,
+    currentAnimationId: null,
+    animationPlayback: { ...DEFAULT_ANIMATION_PLAYBACK },
+  }),
+
+  // Animation playback
+  setAnimationPlayback: (playback) => {
+    const { animationPlayback } = get();
+    set({ animationPlayback: { ...animationPlayback, ...playback } });
+  },
+
+  // Apply animation state directly without side effects (for playback/export)
+  applyAnimationState: (state) => {
+    set({
+      viewBounds: { ...state.viewBounds },
+      fractalType: state.fractalType,
+      juliaConstant: { ...state.juliaConstant },
+      equationId: state.equationId,
+      juliaZoomFactor: state.juliaZoomFactor,
+      maxIterations: state.maxIterations,
+      currentPaletteId: state.currentPaletteId,
+      colorTemperature: state.colorTemperature,
+    });
+  },
+
+  // Saved animations
+  saveAnimation: async (name) => {
+    const { keyframes } = get();
+    if (keyframes.length === 0) return;
+
+    const totalDuration = calculateTotalDuration(keyframes);
+    const id = await dbAddAnimation({
+      name,
+      keyframes,
+      totalDuration,
+    });
+
+    // Reload from database
+    const animations = await getAllAnimations();
+    set({ savedAnimations: animations, currentAnimationId: id });
+    return id;
+  },
+
+  loadAnimation: async (id) => {
+    const { savedAnimations } = get();
+    const animation = savedAnimations.find((a) => a.id === id);
+    if (animation) {
+      set({
+        keyframes: animation.keyframes,
+        currentAnimationId: id,
+        selectedKeyframeId: null,
+        animationPlayback: { ...DEFAULT_ANIMATION_PLAYBACK },
+      });
+    }
+  },
+
+  deleteAnimation: async (id) => {
+    await dbDeleteAnimation(id);
+    const { currentAnimationId } = get();
+    const animations = await getAllAnimations();
+    set({
+      savedAnimations: animations,
+      currentAnimationId: currentAnimationId === id ? null : currentAnimationId,
+    });
+  },
+
+  loadAnimationsFromDb: async () => {
+    const animations = await getAllAnimations();
+    set({ savedAnimations: animations });
+  },
+
+  updateSavedAnimation: async (id, updates) => {
+    await dbUpdateAnimation(id, updates);
+    const animations = await getAllAnimations();
+    set({ savedAnimations: animations });
+  },
+
+  // Video Export actions
+  setShowVideoExportDialog: (show) => set({ showVideoExportDialog: show }),
+
+  setVideoExportSettings: (settings) => {
+    const { videoExportSettings } = get();
+    const newSettings = { ...videoExportSettings, ...settings };
+    saveVideoExportSettings(newSettings);
+    set({ videoExportSettings: newSettings });
+  },
+
+  setVideoExportProgress: (progress) => set({ videoExportProgress: progress }),
+
+  setIsExportingVideo: (exporting) => set({ isExportingVideo: exporting }),
+
+  setVideoExportAbortController: (controller) => set({ videoExportAbortController: controller }),
+
+  cancelVideoExport: () => {
+    const { videoExportAbortController } = get();
+    if (videoExportAbortController) {
+      videoExportAbortController.abort();
+    }
+    set({
+      isExportingVideo: false,
+      videoExportProgress: null,
+      videoExportAbortController: null,
+    });
+  },
 }),
     {
       name: 'fractal-settings',
@@ -818,6 +1138,7 @@ export const useFractalStore = create<FractalStore>()(
         qualityCollapsed: state.qualityCollapsed,
         savedJuliasCollapsed: state.savedJuliasCollapsed,
         infoCollapsed: state.infoCollapsed,
+        animationPanelCollapsed: state.animationPanelCollapsed,
       }),
     }
   )

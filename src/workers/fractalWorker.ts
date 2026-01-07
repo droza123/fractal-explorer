@@ -392,22 +392,40 @@ function renderStrip(msg: RenderMessage): Uint8ClampedArray {
   return data;
 }
 
+// Log that worker loaded successfully
+console.log('[FractalWorker] Worker initialized');
+
 // Worker message handler
 self.onmessage = (event: MessageEvent<WorkerMessage>) => {
-  const msg = event.data;
+  try {
+    const msg = event.data;
 
-  if (msg.type === 'render') {
-    const data = renderStrip(msg);
+    if (msg.type === 'render') {
+      const data = renderStrip(msg);
 
-    // Transfer the buffer back to main thread
+      // Transfer the buffer back to main thread
+      self.postMessage({
+        type: 'result',
+        id: msg.id,
+        startY: msg.startY,
+        endY: msg.endY,
+        data: data
+      }, { transfer: [data.buffer] });
+    }
+  } catch (error) {
+    console.error('[FractalWorker] Error processing message:', error);
+    // Send error back to main thread
     self.postMessage({
-      type: 'result',
-      id: msg.id,
-      startY: msg.startY,
-      endY: msg.endY,
-      data: data
-    }, { transfer: [data.buffer] });
+      type: 'error',
+      message: error instanceof Error ? error.message : 'Unknown error in worker'
+    });
   }
+};
+
+// Global error handler for uncaught errors
+self.onerror = (event) => {
+  console.error('[FractalWorker] Uncaught error:', event);
+  return false;
 };
 
 export {}; // Make this a module

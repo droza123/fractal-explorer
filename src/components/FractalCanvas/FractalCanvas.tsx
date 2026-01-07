@@ -30,7 +30,7 @@ export function FractalCanvas() {
     setSelection,
     setRenderMode,
     zoomToSelection,
-    zoomAtPoint,
+    zoomAtPointAnimated,
     fractalType,
     juliaConstant,
     equationId,
@@ -366,8 +366,8 @@ export function FractalCanvas() {
     const coords = getCanvasCoords(e);
     const zoomFactor = e.deltaY > 0 ? 1.2 : 0.8;
 
-    zoomAtPoint(coords.x, coords.y, zoomFactor, canvas.width, canvas.height);
-  }, [getCanvasCoords, zoomAtPoint]);
+    zoomAtPointAnimated(coords.x, coords.y, zoomFactor, canvas.width, canvas.height);
+  }, [getCanvasCoords, zoomAtPointAnimated]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -525,9 +525,9 @@ export function FractalCanvas() {
       switchToJulia(complex);
     } else {
       // Zoom in at this point
-      zoomAtPoint(x, y, 0.5, canvas.width, canvas.height);
+      zoomAtPointAnimated(x, y, 0.5, canvas.width, canvas.height);
     }
-  }, [fractalType, viewBounds, switchToJulia, zoomAtPoint, showCanvas2D]);
+  }, [fractalType, viewBounds, switchToJulia, zoomAtPointAnimated, showCanvas2D]);
 
   // Apply touch gestures to container
   useTouchGestures(containerRef as React.RefObject<HTMLElement>, {

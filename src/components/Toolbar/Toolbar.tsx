@@ -4,6 +4,7 @@ import { equations } from '../../lib/equations';
 import { JuliaPreview } from '../JuliaPreview/JuliaPreview';
 import { SavedPointsList } from '../SavedPointsList/SavedPointsList';
 import { ManualPointEntry } from '../ManualPointEntry/ManualPointEntry';
+import { AnimationPanel } from '../AnimationPanel';
 import { exportPoints, importPoints } from '../../db/database';
 
 export function Toolbar() {
@@ -334,6 +335,99 @@ export function Toolbar() {
 
       {/* Julia preview - only in heatmap mode, placed above Quality */}
       {fractalType === 'heatmap' && <JuliaPreview />}
+
+      {/* Animation Panel - for 2D modes (above Quality) */}
+      {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
+        <AnimationPanel />
+      )}
+
+      {/* Saved Julia sets - only in Julia mode (above Quality) */}
+      {fractalType === 'julia' && (
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+          {/* Header - always visible */}
+          <div className="flex items-center justify-between p-2">
+            <button
+              onClick={() => setSavedJuliasCollapsed(!savedJuliasCollapsed)}
+              className="flex items-center gap-1 text-xs text-gray-300 font-medium hover:text-gray-100"
+            >
+              <svg
+                className={`w-3 h-3 transition-transform ${savedJuliasCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Saved Julia Sets ({savedJulias.length})
+            </button>
+            <div className="flex gap-1">
+              {!savedJuliasCollapsed && (
+                <>
+                  <button
+                    onClick={() => setSortByRecent(!sortByRecent)}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title={sortByRecent ? 'Sorted by recent - click for alphabetical' : 'Sorted alphabetically - click for recent'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {sortByRecent ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                      )}
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setCompactView(!compactView)}
+                    className={`p-1 rounded hover:bg-gray-700 transition-colors ${compactView ? 'text-purple-400' : 'text-gray-400 hover:text-gray-200'}`}
+                    title={compactView ? 'Switch to detailed view' : 'Switch to compact view'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      {compactView ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                      )}
+                    </svg>
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setShowManualEntry(true)}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
+                title="Add point manually"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
+                title="Import Julia Sets"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </button>
+              <button
+                onClick={handleExport}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
+                title="Export Saved Julia Sets"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          {/* Collapsible content */}
+          {!savedJuliasCollapsed && (
+            <div className={`px-2 pb-2 overflow-y-auto ${compactView ? 'max-h-52' : 'max-h-48'}`}>
+              <SavedPointsList compact={compactView} sortedJulias={sortedSavedJulias} />
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 2D Quality controls - only in 2D modes */}
       {(fractalType === 'mandelbrot' || fractalType === 'julia' || fractalType === 'heatmap') && (
@@ -868,94 +962,6 @@ export function Toolbar() {
                 />
                 <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.detailLevel < 0.5 ? 'High' : renderQuality.detailLevel < 0.8 ? 'Med' : 'Low'}</span>
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Saved Julia sets - only in Julia mode */}
-      {fractalType === 'julia' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
-          {/* Header - always visible */}
-          <div className="flex items-center justify-between p-2">
-            <button
-              onClick={() => setSavedJuliasCollapsed(!savedJuliasCollapsed)}
-              className="flex items-center gap-1 text-xs text-gray-300 font-medium hover:text-gray-100"
-            >
-              <svg
-                className={`w-3 h-3 transition-transform ${savedJuliasCollapsed ? '' : 'rotate-90'}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-              Saved Julia Sets ({savedJulias.length})
-            </button>
-            <div className="flex gap-1">
-              {!savedJuliasCollapsed && (
-                <>
-                  <button
-                    onClick={() => setSortByRecent(!sortByRecent)}
-                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                    title={sortByRecent ? 'Sorted by recent - click for alphabetical' : 'Sorted alphabetically - click for recent'}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {sortByRecent ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                      )}
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setCompactView(!compactView)}
-                    className={`p-1 rounded hover:bg-gray-700 transition-colors ${compactView ? 'text-purple-400' : 'text-gray-400 hover:text-gray-200'}`}
-                    title={compactView ? 'Switch to detailed view' : 'Switch to compact view'}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {compactView ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                      )}
-                    </svg>
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setShowManualEntry(true)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
-                title="Add point manually"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
-                title="Import Julia Sets"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-              </button>
-              <button
-                onClick={handleExport}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
-                title="Export Saved Julia Sets"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          {/* Collapsible content */}
-          {!savedJuliasCollapsed && (
-            <div className={`px-2 pb-2 overflow-y-auto ${compactView ? 'max-h-52' : 'max-h-48'}`}>
-              <SavedPointsList compact={compactView} sortedJulias={sortedSavedJulias} />
             </div>
           )}
         </div>

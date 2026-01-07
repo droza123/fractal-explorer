@@ -23,7 +23,7 @@ export function HeatmapExplorer() {
     selection,
     setSelection,
     zoomToSelection,
-    zoomAtPoint,
+    zoomAtPointAnimated,
     equationId,
     heatmapPreviewConstant,
     setHeatmapPreviewConstant,
@@ -371,8 +371,8 @@ export function HeatmapExplorer() {
     const coords = getCanvasCoords(e);
     const zoomFactor = e.deltaY > 0 ? 1.2 : 0.8;
 
-    zoomAtPoint(coords.x, coords.y, zoomFactor, canvas.width, canvas.height);
-  }, [getCanvasCoords, zoomAtPoint]);
+    zoomAtPointAnimated(coords.x, coords.y, zoomFactor, canvas.width, canvas.height);
+  }, [getCanvasCoords, zoomAtPointAnimated]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
