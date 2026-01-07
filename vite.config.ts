@@ -12,7 +12,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['fractal-icon.svg', 'apple-touch-icon-180x180.png', 'og-image.jpg', 'favicon.ico'],
       manifest: {
-        name: 'Fractal Explorer',
+        name: 'Fractal Voyager',
         short_name: 'Fractals',
         description: 'Explore Mandelbrot sets, Julia sets, and 3D Mandelbulb fractals with GPU-accelerated rendering, animation, and video export.',
         theme_color: '#7c3aed',

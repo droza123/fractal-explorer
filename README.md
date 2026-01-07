@@ -1,4 +1,4 @@
-# Fractal Explorer
+# Fractal Voyager
 
 A modern, GPU-accelerated fractal exploration app built with React and WebGL. This web application is a reimagining of an original Windows WPF application, bringing the beauty of mathematical fractals to the browser with enhanced features and cross-platform compatibility.
 
@@ -111,7 +111,7 @@ Cross-Origin-Embedder-Policy: require-corp
 
 ## PWA Support
 
-Fractal Explorer is a Progressive Web App that can be installed on desktop and mobile devices. All features, including video export, work offline after installation.
+Fractal Voyager is a Progressive Web App that can be installed on desktop and mobile devices. All features, including video export, work offline after installation.
 
 ## License
 
