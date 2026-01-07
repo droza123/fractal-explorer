@@ -13,9 +13,9 @@ export function Toolbar() {
     renderMode,
     goBack,
     goForward,
-    resetView,
     fractalType,
     juliaConstant,
+    resetJuliaConstant,
     equationId,
     juliaZoomFactor,
     setJuliaZoomFactor,
@@ -32,6 +32,7 @@ export function Toolbar() {
     renderQuality2D,
     setMandelbulbPower,
     setFov,
+    setCamera3D,
     setLightingParams,
     resetCamera3D,
     resetLighting,
@@ -45,10 +46,16 @@ export function Toolbar() {
     showSaveIndicator,
     isHighPrecisionActive,
     setShowExportDialog,
+    // UI collapsed states (persisted)
+    qualityCollapsed,
+    setQualityCollapsed,
+    savedJuliasCollapsed,
+    setSavedJuliasCollapsed,
+    infoCollapsed,
+    setInfoCollapsed,
   } = useFractalStore();
 
   const [showManualEntry, setShowManualEntry] = useState(false);
-  const [savedJuliasCollapsed, setSavedJuliasCollapsed] = useState(false);
   const [compactView, setCompactView] = useState(false);
   const [sortByRecent, setSortByRecent] = useState(true); // true = recent first, false = alphabetical
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -148,14 +155,14 @@ export function Toolbar() {
   const currentEquation = equations.find(e => e.id === equationId);
 
   return (
-    <div className="absolute top-4 left-4 flex flex-col gap-2">
+    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-2 touch-manipulation">
       {/* Navigation and mode controls */}
-      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
-        <div className="flex items-center gap-2">
+      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 shadow-lg border border-gray-700/50 max-w-[calc(100vw-2rem)]">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <button
             onClick={() => goBack()}
             disabled={!canGoBack}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[36px] min-w-[36px]"
             title="Go back (previous view)"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,7 +173,7 @@ export function Toolbar() {
           <button
             onClick={() => goForward()}
             disabled={!canGoForward}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[36px] min-w-[36px]"
             title="Go forward (next view)"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,23 +181,13 @@ export function Toolbar() {
             </svg>
           </button>
 
-          <button
-            onClick={resetView}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
-            title="Reset to default view"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-          </button>
-
           <div className="w-px h-6 bg-gray-600 mx-1" />
 
           {/* Mode buttons */}
-          <div className="flex gap-1">
+          <div className="flex gap-0.5 sm:gap-1">
             <button
               onClick={switchToMandelbrot}
-              className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
                 fractalType === 'mandelbrot'
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -201,7 +198,7 @@ export function Toolbar() {
             </button>
             <button
               onClick={() => switchToJulia(juliaConstant)}
-              className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
                 fractalType === 'julia'
                   ? 'bg-purple-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -212,7 +209,7 @@ export function Toolbar() {
             </button>
             <button
               onClick={switchToHeatmap}
-              className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
                 fractalType === 'heatmap'
                   ? 'bg-orange-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -223,7 +220,7 @@ export function Toolbar() {
             </button>
             <button
               onClick={switchToMandelbulb}
-              className={`px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
                 fractalType === 'mandelbulb'
                   ? 'bg-emerald-600 text-white'
                   : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
@@ -239,7 +236,7 @@ export function Toolbar() {
           {/* Color palette button */}
           <button
             onClick={() => setShowColorSelector(true)}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors min-h-[36px] min-w-[36px]"
             title="Color palette"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,41 +247,14 @@ export function Toolbar() {
           {/* Export image button */}
           <button
             onClick={() => setShowExportDialog(true)}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
+            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors min-h-[36px] min-w-[36px]"
             title="Export high-resolution image"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
-
-          <div className="w-px h-6 bg-gray-600 mx-1" />
-
-          <div className="flex items-center gap-2">
-            <label htmlFor="iterations" className="text-sm text-gray-300 cursor-help" title="Max iterations: Higher values reveal more detail and affect coloring. In 3D, also improves fractal shape accuracy">
-              Iter:
-            </label>
-            <input
-              id="iterations"
-              type="number"
-              min="50"
-              max="10000"
-              step="50"
-              value={maxIterations}
-              onChange={handleIterationsChange}
-              className="w-20 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-sm focus:outline-none focus:border-blue-500"
-            />
-            <button
-              onClick={() => setMaxIterations(256)}
-              className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-              title="Reset iterations to 256"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </button>
-
-          </div>
         </div>
       </div>
 
@@ -335,60 +305,108 @@ export function Toolbar() {
               </button>
             </div>
 
-            {/* Julia-specific: Complex constant display */}
-            {fractalType === 'julia' && (
-              <div className="text-xs text-gray-400">
-                c = {juliaConstant.real.toFixed(4)} {juliaConstant.imag >= 0 ? '+' : ''} {juliaConstant.imag.toFixed(4)}i
-              </div>
-            )}
+            {/* Julia-specific: Complex constant display with reset */}
+            {fractalType === 'julia' && (() => {
+              const isCustomC = juliaConstant.real !== -0.7 || juliaConstant.imag !== 0.27015;
+              return (
+                <div className="flex items-center justify-between">
+                  <div className={`text-xs ${isCustomC ? 'text-purple-400' : 'text-gray-400'}`}>
+                    c = {juliaConstant.real.toFixed(4)} {juliaConstant.imag >= 0 ? '+' : ''} {juliaConstant.imag.toFixed(4)}i
+                    {isCustomC && <span className="text-purple-500 ml-1">(custom)</span>}
+                  </div>
+                  <button
+                    onClick={resetJuliaConstant}
+                    className={`p-1 rounded hover:bg-gray-700 transition-colors ${
+                      isCustomC ? 'text-purple-400 hover:text-purple-300' : 'text-gray-400 hover:text-gray-200'
+                    }`}
+                    title="Reset to default c = -0.7 + 0.27015i"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
 
+      {/* Julia preview - only in heatmap mode, placed above Quality */}
+      {fractalType === 'heatmap' && <JuliaPreview />}
+
       {/* 2D Quality controls - only in 2D modes */}
       {(fractalType === 'mandelbrot' || fractalType === 'julia' || fractalType === 'heatmap') && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
-          <div className="text-sm text-gray-300 font-medium mb-2">Quality</div>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-20 cursor-help" title="GPU Anti-aliasing: Smooths jagged edges by sampling multiple points per pixel. Higher = smoother but slower">AA (GPU):</label>
-              <div className="flex gap-1">
-                {[
-                  { value: 1, label: 'Off' },
-                  { value: 2, label: '4x' },
-                  { value: 3, label: '9x' },
-                  { value: 4, label: '16x' },
-                ].map(({ value, label }) => (
-                  <button
-                    key={value}
-                    onClick={() => setRenderQuality2D({ antiAlias: value })}
-                    className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                      renderQuality2D.antiAlias === value
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+          {/* Collapsible header */}
+          <button
+            onClick={() => setQualityCollapsed(!qualityCollapsed)}
+            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-1 text-sm text-gray-300 font-medium">
+              <svg
+                className={`w-3 h-3 transition-transform ${qualityCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Quality
             </div>
-            {/* CPU Anti-aliasing - only for Mandelbrot and Julia */}
-            {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
+            <span className="text-xs text-gray-500">
+              {maxIterations} · AA: {renderQuality2D.antiAlias === 1 ? 'Off' : `${renderQuality2D.antiAlias * renderQuality2D.antiAlias}x`}
+              {(fractalType === 'mandelbrot' || fractalType === 'julia') && `/${renderQuality2D.antiAliasCPU === 1 ? 'Off' : `${renderQuality2D.antiAliasCPU * renderQuality2D.antiAliasCPU}x`}`}
+              {(fractalType === 'mandelbrot' || fractalType === 'julia') && ` · ${
+                renderQuality2D.precisionMode === 'auto'
+                  ? `Auto (${renderQuality2D.precisionSwitchZoom >= 1000 ? `${Math.round(renderQuality2D.precisionSwitchZoom / 1000)}k` : renderQuality2D.precisionSwitchZoom}x)`
+                  : renderQuality2D.precisionMode === 'high' ? 'Hi-Prec' : 'Std'
+              }`}
+            </span>
+          </button>
+          {/* Collapsible content */}
+          {!qualityCollapsed && (
+            <div className="px-3 pb-3 flex flex-col gap-2">
+              {/* Iterations */}
               <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-400 w-20 cursor-help" title="CPU Anti-aliasing: Used in high precision mode. Higher values significantly increase render time">AA (CPU):</label>
+                <label className="text-xs text-gray-400 w-20 cursor-help" title="Max iterations: Higher values reveal more detail and affect coloring">Iterations:</label>
+                <input
+                  type="number"
+                  min="50"
+                  max="10000"
+                  step="50"
+                  value={maxIterations}
+                  onChange={handleIterationsChange}
+                  className="w-16 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-xs focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  onClick={() => setMaxIterations(256)}
+                  className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                  title="Reset iterations to 256"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+              {/* GPU Anti-aliasing */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-20 cursor-help" title="GPU Anti-aliasing: Smooths jagged edges by sampling multiple points per pixel. Higher = smoother but slower">AA (GPU):</label>
                 <div className="flex gap-1">
                   {[
                     { value: 1, label: 'Off' },
                     { value: 2, label: '4x' },
                     { value: 3, label: '9x' },
+                    { value: 4, label: '16x' },
                   ].map(({ value, label }) => (
                     <button
                       key={value}
-                      onClick={() => setRenderQuality2D({ antiAliasCPU: value })}
+                      onClick={() => setRenderQuality2D({ antiAlias: value })}
                       className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        renderQuality2D.antiAliasCPU === value
-                          ? 'bg-purple-600 text-white'
+                        renderQuality2D.antiAlias === value
+                          ? fractalType === 'julia' ? 'bg-purple-600 text-white'
+                            : fractalType === 'heatmap' ? 'bg-orange-600 text-white'
+                            : 'bg-blue-600 text-white'
                           : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                       }`}
                     >
@@ -397,24 +415,22 @@ export function Toolbar() {
                   ))}
                 </div>
               </div>
-            )}
-            {/* Precision mode - only for Mandelbrot and Julia */}
-            {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
-              <>
+              {/* CPU Anti-aliasing - only for Mandelbrot and Julia */}
+              {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-gray-400 w-20 cursor-help" title="Rendering mode: Std = GPU (fast, limited zoom depth), High = CPU (slower, unlimited zoom depth), Auto = GPU at low zoom, switches to CPU at deep zoom">Precision:</label>
+                  <label className="text-xs text-gray-400 w-20 cursor-help" title="CPU Anti-aliasing: Used in high precision mode. Higher values significantly increase render time">AA (CPU):</label>
                   <div className="flex gap-1">
                     {[
-                      { value: 'auto', label: 'Auto' },
-                      { value: 'standard', label: 'Std' },
-                      { value: 'high', label: 'High' },
+                      { value: 1, label: 'Off' },
+                      { value: 2, label: '4x' },
+                      { value: 3, label: '9x' },
                     ].map(({ value, label }) => (
                       <button
                         key={value}
-                        onClick={() => setRenderQuality2D({ precisionMode: value as 'auto' | 'standard' | 'high' })}
+                        onClick={() => setRenderQuality2D({ antiAliasCPU: value })}
                         className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                          renderQuality2D.precisionMode === value
-                            ? 'bg-purple-600 text-white'
+                          renderQuality2D.antiAliasCPU === value
+                            ? fractalType === 'julia' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
                             : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
                         }`}
                       >
@@ -423,42 +439,71 @@ export function Toolbar() {
                     ))}
                   </div>
                 </div>
-                {/* Auto switch threshold slider - only shown in auto mode */}
-                {renderQuality2D.precisionMode === 'auto' && (
+              )}
+              {/* Precision mode - only for Mandelbrot and Julia */}
+              {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
+                <>
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-400 w-20 cursor-help" title="Auto mode threshold: The zoom level at which Auto switches from GPU to CPU. Lower = earlier switch (better quality), Higher = later switch (faster, may show artifacts before switching)">Switch at:</label>
-                    <input
-                      type="range"
-                      min="0"
-                      max="4"
-                      step="1"
-                      value={[12500, 30000, 50000, 100000, 200000].indexOf(renderQuality2D.precisionSwitchZoom)}
-                      onChange={(e) => {
-                        const zoomLevels = [12500, 30000, 50000, 100000, 200000];
-                        setRenderQuality2D({ precisionSwitchZoom: zoomLevels[parseInt(e.target.value)] });
-                      }}
-                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                    />
-                    <span className="text-xs text-gray-400 w-12 text-right">
-                      {renderQuality2D.precisionSwitchZoom >= 1000
-                        ? `${(renderQuality2D.precisionSwitchZoom / 1000).toFixed(0)}k`
-                        : renderQuality2D.precisionSwitchZoom}x
-                    </span>
+                    <label className="text-xs text-gray-400 w-20 cursor-help" title="Rendering mode: Std = GPU (fast, limited zoom depth), High = CPU (slower, unlimited zoom depth), Auto = GPU at low zoom, switches to CPU at deep zoom">Precision:</label>
+                    <div className="flex gap-1">
+                      {[
+                        { value: 'auto', label: 'Auto' },
+                        { value: 'standard', label: 'Std' },
+                        { value: 'high', label: 'High' },
+                      ].map(({ value, label }) => (
+                        <button
+                          key={value}
+                          onClick={() => setRenderQuality2D({ precisionMode: value as 'auto' | 'standard' | 'high' })}
+                          className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                            renderQuality2D.precisionMode === value
+                              ? fractalType === 'julia' ? 'bg-purple-600 text-white' : 'bg-blue-600 text-white'
+                              : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                )}
-              </>
-            )}
-          </div>
+                  {/* Auto switch threshold slider - only shown in auto mode */}
+                  {renderQuality2D.precisionMode === 'auto' && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-400 w-20 cursor-help" title="Auto mode threshold: The zoom level at which Auto switches from GPU to CPU. Lower = earlier switch (better quality), Higher = later switch (faster, may show artifacts before switching)">Switch at:</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="4"
+                        step="1"
+                        value={[12500, 30000, 50000, 100000, 200000].indexOf(renderQuality2D.precisionSwitchZoom)}
+                        onChange={(e) => {
+                          const zoomLevels = [12500, 30000, 50000, 100000, 200000];
+                          setRenderQuality2D({ precisionSwitchZoom: zoomLevels[parseInt(e.target.value)] });
+                        }}
+                        className={`flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer ${
+                          fractalType === 'julia' ? 'accent-purple-500' : 'accent-blue-500'
+                        }`}
+                      />
+                      <span className="text-xs text-gray-400 w-12 text-right">
+                        {renderQuality2D.precisionSwitchZoom >= 1000
+                          ? `${(renderQuality2D.precisionSwitchZoom / 1000).toFixed(0)}k`
+                          : renderQuality2D.precisionSwitchZoom}x
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {/* 3D Mandelbulb controls */}
       {fractalType === 'mandelbulb' && (
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {/* Power slider */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-300 whitespace-nowrap w-14 cursor-help" title="Mandelbulb exponent: Controls the fractal's shape. Power 8 is the classic Mandelbulb">Power:</label>
+              <label className="text-xs text-gray-400 w-12 cursor-help" title="Mandelbulb exponent: Controls the fractal's shape. Power 8 is the classic Mandelbulb">Power:</label>
               <input
                 type="range"
                 min="2"
@@ -466,14 +511,47 @@ export function Toolbar() {
                 step="0.1"
                 value={mandelbulbParams.power}
                 onChange={(e) => setMandelbulbPower(parseFloat(e.target.value))}
-                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
-              <span className="text-sm text-gray-400 w-8 text-right">{mandelbulbParams.power.toFixed(1)}</span>
+              <span className="text-xs text-gray-400 w-8 text-right">{mandelbulbParams.power.toFixed(1)}</span>
+              <button
+                onClick={() => setMandelbulbPower(8)}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset power to 8"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Distance slider */}
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 w-12 cursor-help" title="Camera distance: Move closer or farther from the fractal">Dist:</label>
+              <input
+                type="range"
+                min="1.2"
+                max="5"
+                step="0.1"
+                value={camera3D.distance}
+                onChange={(e) => setCamera3D({ distance: parseFloat(e.target.value) })}
+                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+              <span className="text-xs text-gray-400 w-8 text-right">{camera3D.distance.toFixed(1)}</span>
+              <button
+                onClick={() => setCamera3D({ distance: 2.5 })}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset distance to default"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
             {/* FOV slider */}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-300 whitespace-nowrap w-14 cursor-help" title="Field of View: Lower values zoom in (telephoto), higher values show more (wide angle)">FOV:</label>
+              <label className="text-xs text-gray-400 w-12 cursor-help" title="Field of View: Lower values zoom in (telephoto), higher values show more (wide angle)">FOV:</label>
               <input
                 type="range"
                 min="20"
@@ -481,22 +559,28 @@ export function Toolbar() {
                 step="1"
                 value={camera3D.fov}
                 onChange={(e) => setFov(parseInt(e.target.value))}
-                className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
-              <span className="text-sm text-gray-400 w-8 text-right">{camera3D.fov}°</span>
+              <span className="text-xs text-gray-400 w-8 text-right">{camera3D.fov}°</span>
+              <button
+                onClick={() => setFov(60)}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset FOV to 60°"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
-            {/* Camera reset */}
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-gray-400">
-                Distance: {camera3D.distance.toFixed(1)}
-              </div>
+            {/* Rotation reset */}
+            <div className="flex items-center justify-end pt-1">
               <button
                 onClick={resetCamera3D}
-                className="px-2 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors"
-                title="Reset camera position"
+                className="px-2 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset camera rotation to default view"
               >
-                Reset Camera
+                Reset Rotation
               </button>
             </div>
           </div>
@@ -511,15 +595,15 @@ export function Toolbar() {
             <button
               onClick={resetLighting}
               className="px-2 py-0.5 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors"
-              title="Reset lighting"
+              title="Reset all lighting settings"
             >
-              Reset
+              Reset All
             </button>
           </div>
           <div className="flex flex-col gap-2">
             {/* Ambient */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Ambient light: Base illumination that affects all surfaces equally, even in shadow">Ambient:</label>
+              <label className="text-xs text-gray-400 w-14 cursor-help" title="Ambient light: Base illumination that affects all surfaces equally, even in shadow">Ambient:</label>
               <input
                 type="range"
                 min="0"
@@ -530,11 +614,20 @@ export function Toolbar() {
                 className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
               <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.ambient * 100).toFixed(0)}%</span>
+              <button
+                onClick={() => setLightingParams({ ambient: 0.15 })}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset ambient to 15%"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
             {/* Diffuse */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Diffuse light: Soft, matte lighting that depends on surface angle to the light source">Diffuse:</label>
+              <label className="text-xs text-gray-400 w-14 cursor-help" title="Diffuse light: Soft, matte lighting that depends on surface angle to the light source">Diffuse:</label>
               <input
                 type="range"
                 min="0"
@@ -545,11 +638,20 @@ export function Toolbar() {
                 className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
               <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.diffuse * 100).toFixed(0)}%</span>
+              <button
+                onClick={() => setLightingParams({ diffuse: 0.8 })}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset diffuse to 80%"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
             {/* Specular */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Specular highlight: Bright reflections that create a shiny appearance">Specular:</label>
+              <label className="text-xs text-gray-400 w-14 cursor-help" title="Specular highlight: Bright reflections that create a shiny appearance">Specular:</label>
               <input
                 type="range"
                 min="0"
@@ -560,11 +662,20 @@ export function Toolbar() {
                 className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
               <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.specular * 100).toFixed(0)}%</span>
+              <button
+                onClick={() => setLightingParams({ specular: 0.5 })}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset specular to 50%"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
             {/* Shininess */}
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Shininess: Controls how tight the specular highlights are. Higher = smaller, sharper reflections">Shiny:</label>
+              <label className="text-xs text-gray-400 w-14 cursor-help" title="Shininess: Controls how tight the specular highlights are. Higher = smaller, sharper reflections">Shiny:</label>
               <input
                 type="range"
                 min="1"
@@ -575,13 +686,33 @@ export function Toolbar() {
                 className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
               />
               <span className="text-xs text-gray-500 w-8 text-right">{lightingParams.shininess.toFixed(0)}</span>
+              <button
+                onClick={() => setLightingParams({ shininess: 32 })}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title="Reset shininess to 32"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
 
             {/* Light Direction */}
             <div className="border-t border-gray-700 pt-2 mt-1">
-              <div className="text-xs text-gray-400 mb-1 cursor-help" title="Controls the position of the light source">Light Direction</div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-gray-400 cursor-help" title="Controls the position of the light source">Light Direction</span>
+                <button
+                  onClick={() => setLightingParams({ lightAngleX: 0.5, lightAngleY: 0.8 })}
+                  className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                  title="Reset light direction"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 w-8 cursor-help" title="Horizontal angle: Rotates light around the fractal">H:</label>
+                <label className="text-xs text-gray-500 w-6 cursor-help" title="Horizontal angle: Rotates light around the fractal">H:</label>
                 <input
                   type="range"
                   min="-3.14"
@@ -591,7 +722,7 @@ export function Toolbar() {
                   onChange={(e) => setLightingParams({ lightAngleX: parseFloat(e.target.value) })}
                   className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
-                <label className="text-xs text-gray-500 w-6 ml-2 cursor-help" title="Vertical angle: Raises or lowers the light source">V:</label>
+                <label className="text-xs text-gray-500 w-6 ml-1 cursor-help" title="Vertical angle: Raises or lowers the light source">V:</label>
                 <input
                   type="range"
                   min="-1.5"
@@ -609,89 +740,136 @@ export function Toolbar() {
 
       {/* Quality controls - only in 3D mode */}
       {fractalType === 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-300 font-medium">Quality</span>
-          </div>
-
-          {/* Quality presets */}
-          <div className="flex gap-1 mb-3">
-            {(['low', 'medium', 'high', 'ultra'] as const).map((preset) => (
-              <button
-                key={preset}
-                onClick={() => setQualityPreset(preset)}
-                className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                  renderQuality.maxSteps === { low: 64, medium: 256, high: 512, ultra: 1024 }[preset]
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-                }`}
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+          {/* Collapsible header */}
+          <button
+            onClick={() => setQualityCollapsed(!qualityCollapsed)}
+            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-1 text-sm text-gray-300 font-medium">
+              <svg
+                className={`w-3 h-3 transition-transform ${qualityCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                {preset.charAt(0).toUpperCase() + preset.slice(1)}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {/* Ray Steps */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Ray march steps: Higher values find more surface detail but render slower">Steps:</label>
-              <input
-                type="range"
-                min="64"
-                max="1024"
-                step="64"
-                value={renderQuality.maxSteps}
-                onChange={(e) => setRenderQuality({ maxSteps: parseInt(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.maxSteps}</span>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Quality
             </div>
+            <span className="text-xs text-gray-500">
+              {maxIterations} · {
+                renderQuality.maxSteps === 64 ? 'Low' :
+                renderQuality.maxSteps === 256 ? 'Med' :
+                renderQuality.maxSteps === 512 ? 'High' :
+                renderQuality.maxSteps === 1024 ? 'Ultra' : 'Custom'
+              }
+            </span>
+          </button>
+          {/* Collapsible content */}
+          {!qualityCollapsed && (
+            <div className="px-3 pb-3 flex flex-col gap-2">
+              {/* Iterations */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-16 cursor-help" title="Max iterations: Higher values reveal more detail and improve fractal shape accuracy">Iterations:</label>
+                <input
+                  type="number"
+                  min="50"
+                  max="10000"
+                  step="50"
+                  value={maxIterations}
+                  onChange={handleIterationsChange}
+                  className="w-16 px-2 py-1 rounded bg-gray-800 border border-gray-600 text-xs focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  onClick={() => setMaxIterations(256)}
+                  className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                  title="Reset iterations to 256"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
 
-            {/* Shadow Steps */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Soft shadow quality: More steps = smoother shadows. Set to 0 to disable shadows for better performance">Shadow:</label>
-              <input
-                type="range"
-                min="0"
-                max="128"
-                step="8"
-                value={renderQuality.shadowSteps}
-                onChange={(e) => setRenderQuality({ shadowSteps: parseInt(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.shadowSteps || 'Off'}</span>
-            </div>
+              {/* Quality presets */}
+              <div className="flex gap-1">
+                {(['low', 'medium', 'high', 'ultra'] as const).map((preset) => (
+                  <button
+                    key={preset}
+                    onClick={() => setQualityPreset(preset)}
+                    className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                      renderQuality.maxSteps === { low: 64, medium: 256, high: 512, ultra: 1024 }[preset]
+                        ? 'bg-emerald-600 text-white'
+                        : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    }`}
+                  >
+                    {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                  </button>
+                ))}
+              </div>
 
-            {/* AO Samples */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Ambient Occlusion: Adds depth by darkening crevices and corners. Set to 0 to disable for better performance">AO:</label>
-              <input
-                type="range"
-                min="0"
-                max="12"
-                step="1"
-                value={renderQuality.aoSamples}
-                onChange={(e) => setRenderQuality({ aoSamples: parseInt(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.aoSamples || 'Off'}</span>
-            </div>
+              {/* Ray Steps */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-16 cursor-help" title="Ray march steps: Higher values find more surface detail but render slower">Steps:</label>
+                <input
+                  type="range"
+                  min="64"
+                  max="1024"
+                  step="64"
+                  value={renderQuality.maxSteps}
+                  onChange={(e) => setRenderQuality({ maxSteps: parseInt(e.target.value) })}
+                  className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.maxSteps}</span>
+              </div>
 
-            {/* Detail Level */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-16 cursor-help" title="Surface detail: Controls ray step size. 'High' uses smaller steps for finer detail but slower rendering">Detail:</label>
-              <input
-                type="range"
-                min="0.3"
-                max="1.0"
-                step="0.05"
-                value={renderQuality.detailLevel}
-                onChange={(e) => setRenderQuality({ detailLevel: parseFloat(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.detailLevel < 0.5 ? 'High' : renderQuality.detailLevel < 0.8 ? 'Med' : 'Low'}</span>
+              {/* Shadow Steps */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-16 cursor-help" title="Soft shadow quality: More steps = smoother shadows. Set to 0 to disable shadows for better performance">Shadow:</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="128"
+                  step="8"
+                  value={renderQuality.shadowSteps}
+                  onChange={(e) => setRenderQuality({ shadowSteps: parseInt(e.target.value) })}
+                  className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.shadowSteps || 'Off'}</span>
+              </div>
+
+              {/* AO Samples */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-16 cursor-help" title="Ambient Occlusion: Adds depth by darkening crevices and corners. Set to 0 to disable for better performance">AO:</label>
+                <input
+                  type="range"
+                  min="0"
+                  max="12"
+                  step="1"
+                  value={renderQuality.aoSamples}
+                  onChange={(e) => setRenderQuality({ aoSamples: parseInt(e.target.value) })}
+                  className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.aoSamples || 'Off'}</span>
+              </div>
+
+              {/* Detail Level */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-16 cursor-help" title="Surface detail: Controls ray step size. 'High' uses smaller steps for finer detail but slower rendering">Detail:</label>
+                <input
+                  type="range"
+                  min="0.3"
+                  max="1.0"
+                  step="0.05"
+                  value={renderQuality.detailLevel}
+                  onChange={(e) => setRenderQuality({ detailLevel: parseFloat(e.target.value) })}
+                  className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.detailLevel < 0.5 ? 'High' : renderQuality.detailLevel < 0.8 ? 'Med' : 'Low'}</span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -783,44 +961,89 @@ export function Toolbar() {
         </div>
       )}
 
-      {/* Julia preview - only in heatmap mode */}
-      {fractalType === 'heatmap' && <JuliaPreview />}
-
       {/* Usage hints and mode info */}
-      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-gray-700/50">
-        <div className="text-xs text-gray-400 space-y-1">
-          {fractalType === 'mandelbulb' ? (
-            <>
-              <div>Drag to rotate the view</div>
-              <div>Scroll wheel to zoom in/out</div>
-              <div>Adjust power slider for different shapes</div>
-            </>
-          ) : (
-            <>
-              <div>Left-drag to select zoom area</div>
-              <div>Right-drag to pan</div>
-              <div>Scroll wheel to zoom at cursor</div>
-              {fractalType === 'mandelbrot' && (
-                <div>Double-click to view Julia set at point</div>
-              )}
-              {fractalType === 'julia' && (
-                <div>Press Space to save current Julia</div>
-              )}
-              {fractalType === 'heatmap' && (
-                <>
-                  <div>Move cursor to preview Julia sets</div>
-                  <div>Double-click to open full Julia view</div>
-                  <div>Press Space to save current Julia</div>
-                </>
-              )}
-            </>
-          )}
-          <div className="pt-1 border-t border-gray-700 mt-1">
-            Renderer: <span className="text-gray-300">
-              {isHighPrecisionActive ? 'Canvas 2D (High Precision)' : (renderMode === 'webgl' ? 'WebGL 2.0' : 'Canvas 2D')}
-            </span>
+      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+        {/* Collapsible header */}
+        <button
+          onClick={() => setInfoCollapsed(!infoCollapsed)}
+          className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+        >
+          <div className="flex items-center gap-1 text-xs text-gray-300 font-medium">
+            <svg
+              className={`w-3 h-3 transition-transform ${infoCollapsed ? '' : 'rotate-90'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Info
           </div>
-        </div>
+          <span className="text-xs text-gray-500">
+            {isHighPrecisionActive ? 'CPU' : (renderMode === 'webgl' ? 'WebGL' : '2D')}
+          </span>
+        </button>
+        {/* Collapsible content */}
+        {!infoCollapsed && (
+          <div className="px-3 pb-2 text-xs text-gray-400">
+            <div className="grid grid-cols-2 gap-3">
+              {/* Mouse column */}
+              <div>
+                <div className="text-gray-500 font-medium mb-1">Mouse</div>
+                {fractalType === 'mandelbulb' ? (
+                  <div className="space-y-0.5">
+                    <div>Drag to rotate</div>
+                    <div>Scroll to zoom</div>
+                  </div>
+                ) : fractalType === 'heatmap' ? (
+                  <div className="space-y-0.5">
+                    <div>Move to preview</div>
+                    <div>Ctrl to freeze</div>
+                    <div>Left-drag to zoom</div>
+                    <div>Right-drag to pan</div>
+                    <div>Dbl-click to open</div>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5">
+                    <div>Left-drag to zoom</div>
+                    <div>Right-drag to pan</div>
+                    <div>Scroll to zoom</div>
+                    {fractalType === 'mandelbrot' && <div>Dbl-click for Julia</div>}
+                    {fractalType === 'julia' && <div>Space to save</div>}
+                  </div>
+                )}
+              </div>
+              {/* Touch column */}
+              <div>
+                <div className="text-gray-500 font-medium mb-1">Touch</div>
+                {fractalType === 'mandelbulb' ? (
+                  <div className="space-y-0.5">
+                    <div>Drag to rotate</div>
+                    <div>Pinch to zoom</div>
+                  </div>
+                ) : fractalType === 'heatmap' ? (
+                  <div className="space-y-0.5">
+                    <div>1 finger to preview</div>
+                    <div>2 fingers pan/zoom</div>
+                    <div>Dbl-tap to open</div>
+                  </div>
+                ) : (
+                  <div className="space-y-0.5">
+                    <div>Drag to pan</div>
+                    <div>Pinch to zoom</div>
+                    {fractalType === 'mandelbrot' && <div>Dbl-tap for Julia</div>}
+                    {fractalType === 'julia' && <div>+ button to save</div>}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="pt-1 border-t border-gray-700 mt-2">
+              Renderer: <span className="text-gray-300">
+                {isHighPrecisionActive ? 'CPU' : (renderMode === 'webgl' ? 'WebGL' : '2D')}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hidden file input for import */}

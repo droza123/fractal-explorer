@@ -1,10 +1,11 @@
-import { useRef, useEffect, useCallback, useState, useLayoutEffect, useMemo } from 'react';
+import React, { useRef, useEffect, useCallback, useState, useLayoutEffect, useMemo } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { WebGLRenderer } from '../../webgl/renderer';
 import { PRESET_PALETTES, generateShaderPalette, applyTemperatureToPalette } from '../../lib/colors';
 import { getCategoryColor } from '../../lib/suggestions';
 import { SuggestionsPanel } from '../SuggestionsPanel';
-import type { SelectionRect, Complex, SuggestedPoint } from '../../types';
+import { useTouchGestures } from '../../hooks/useTouchGestures';
+import type { SelectionRect, Complex, SuggestedPoint, ViewBounds } from '../../types';
 
 export function HeatmapExplorer() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -17,6 +18,7 @@ export function HeatmapExplorer() {
   const {
     viewBounds,
     setViewBounds,
+    setViewBoundsWithZoom,
     maxIterations,
     selection,
     setSelection,
@@ -38,6 +40,7 @@ export function HeatmapExplorer() {
     // AI Suggestions
     suggestions,
     highlightedSuggestion,
+    setHighlightedSuggestion,
     showSuggestionsPanel,
     clearSuggestions,
   } = useFractalStore();
@@ -65,6 +68,10 @@ export function HeatmapExplorer() {
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
   const [panStartBounds, setPanStartBounds] = useState<typeof viewBounds | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [isPreviewFrozen, setIsPreviewFrozen] = useState(false);
+
+  // Touch gesture state
+  const touchPinchStartBoundsRef = useRef<ViewBounds | null>(null);
 
   // Heatmap always uses WebGL, so clear the high precision flag
   useEffect(() => {
@@ -229,17 +236,70 @@ export function HeatmapExplorer() {
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const coords = getCanvasCoords(e);
     const canvas = canvasRef.current;
+    const dpr = window.devicePixelRatio || 1;
 
-    // Update preview constant and cursor position (unless panning)
-    if (!isPanning) {
-      const complex = getComplexCoords(coords.x, coords.y);
-      setHeatmapPreviewConstant(complex);
-      setCursorPosition({
-        x: coords.x,
-        y: coords.y,
-        real: complex.real,
-        imag: complex.imag,
-      });
+    // Check if mouse is near any suggestion marker (for hover effect)
+    // Only check when not dragging and suggestions panel is visible
+    if (showSuggestionsPanel && suggestions.length > 0 && !isDragging) {
+      const cssX = coords.x / dpr;
+      const cssY = coords.y / dpr;
+      const hoverRadius = 22; // Half of the touch target size (44px)
+
+      let foundSuggestion: SuggestedPoint | null = null;
+      for (const suggestion of suggestions) {
+        const screenCoords = getScreenCoords(suggestion.point);
+        if (screenCoords) {
+          const dx = cssX - screenCoords.x;
+          const dy = cssY - screenCoords.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < hoverRadius) {
+            foundSuggestion = suggestion;
+            break;
+          }
+        }
+      }
+
+      if (foundSuggestion) {
+        // Hovering over a suggestion - preview it
+        if (highlightedSuggestion !== foundSuggestion.id) {
+          setHighlightedSuggestion(foundSuggestion.id);
+          setHeatmapPreviewConstant(foundSuggestion.point);
+        }
+        setCursorPosition({
+          x: coords.x,
+          y: coords.y,
+          real: foundSuggestion.point.real,
+          imag: foundSuggestion.point.imag,
+        });
+      } else {
+        // Not hovering over any suggestion - clear highlight and update preview
+        if (highlightedSuggestion !== null) {
+          setHighlightedSuggestion(null);
+        }
+        // Update preview constant and cursor position (unless panning or frozen)
+        if (!isPanning && !isPreviewFrozen) {
+          const complex = getComplexCoords(coords.x, coords.y);
+          setHeatmapPreviewConstant(complex);
+          setCursorPosition({
+            x: coords.x,
+            y: coords.y,
+            real: complex.real,
+            imag: complex.imag,
+          });
+        }
+      }
+    } else {
+      // No suggestions panel or dragging - just update preview
+      if (!isPanning && !isPreviewFrozen) {
+        const complex = getComplexCoords(coords.x, coords.y);
+        setHeatmapPreviewConstant(complex);
+        setCursorPosition({
+          x: coords.x,
+          y: coords.y,
+          real: complex.real,
+          imag: complex.imag,
+        });
+      }
     }
 
     if (isPanning && panStart && canvas) {
@@ -266,7 +326,7 @@ export function HeatmapExplorer() {
         endY: coords.y,
       });
     }
-  }, [isDragging, dragStart, isPanning, panStart, getCanvasCoords, getComplexCoords, setSelection, setHeatmapPreviewConstant, setCursorPosition, viewBounds, setViewBounds]);
+  }, [isDragging, dragStart, isPanning, panStart, isPreviewFrozen, getCanvasCoords, getComplexCoords, getScreenCoords, setSelection, setHeatmapPreviewConstant, setCursorPosition, viewBounds, setViewBounds, showSuggestionsPanel, suggestions, highlightedSuggestion, setHighlightedSuggestion]);
 
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (e.button === 2 && isPanning) {
@@ -349,6 +409,28 @@ export function HeatmapExplorer() {
     clearSuggestions();
   }, [viewBounds, equationId, clearSuggestions]);
 
+  // Ctrl key to freeze preview (for mouse users to click Open/Save buttons)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsPreviewFrozen(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsPreviewFrozen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
+
   // Handle spacebar for quick save
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -371,6 +453,137 @@ export function HeatmapExplorer() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [heatmapPreviewConstant, saveCurrentJulia, setJuliaConstant]);
+
+  // Touch gesture handlers for explore mode
+  // In Heatmap, single-finger touch explores (updates preview), two-finger pans
+
+  // Single-finger explore: update Julia preview as finger moves
+  const handleTouchSingleFingerMove = useCallback((x: number, y: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+
+    const complex = {
+      real: viewBounds.minReal + (x / canvas.width) * realRange,
+      imag: viewBounds.maxImag - (y / canvas.height) * imagRange,
+    };
+
+    // Update preview and cursor position
+    setHeatmapPreviewConstant(complex);
+    setCursorPosition({
+      x,
+      y,
+      real: complex.real,
+      imag: complex.imag,
+    });
+  }, [viewBounds, setHeatmapPreviewConstant, setCursorPosition]);
+
+  // Combined pinch/pan start - sets ref for tracking
+  const handleTouchPinchStart = useCallback(() => {
+    touchPinchStartBoundsRef.current = { ...viewBounds };
+  }, [viewBounds]);
+
+  const handleTouchPinchMove = useCallback((centerX: number, centerY: number, scale: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !touchPinchStartBoundsRef.current) return;
+
+    // The scale from useTouchGestures is incremental (relative to previous frame)
+    // So we need to apply it to the CURRENT bounds (which we update each frame)
+    const bounds = touchPinchStartBoundsRef.current;
+
+    const realRange = bounds.maxReal - bounds.minReal;
+    const imagRange = bounds.maxImag - bounds.minImag;
+
+    // Calculate zoom factor (scale > 1 means fingers moving apart = zoom in)
+    const zoomFactor = 1 / scale;
+    const newRealRange = realRange * zoomFactor;
+    const newImagRange = imagRange * zoomFactor;
+
+    // Calculate the center point in complex coordinates
+    const centerReal = bounds.minReal + (centerX / canvas.width) * realRange;
+    const centerImag = bounds.maxImag - (centerY / canvas.height) * imagRange;
+
+    // Calculate new bounds centered around the pinch center
+    const ratioX = centerX / canvas.width;
+    const ratioY = centerY / canvas.height;
+
+    const newBounds: ViewBounds = {
+      minReal: centerReal - ratioX * newRealRange,
+      maxReal: centerReal + (1 - ratioX) * newRealRange,
+      minImag: centerImag - (1 - ratioY) * newImagRange,
+      maxImag: centerImag + ratioY * newImagRange,
+    };
+
+    // Update bounds and zoom factor (without committing to history)
+    setViewBoundsWithZoom(newBounds, false);
+
+    // Update ref for next frame (incremental calculation)
+    touchPinchStartBoundsRef.current = newBounds;
+  }, [setViewBoundsWithZoom]);
+
+  const handleTouchPinchEnd = useCallback(() => {
+    if (touchPinchStartBoundsRef.current) {
+      // Commit the final bounds to history
+      setViewBoundsWithZoom(viewBounds, true);
+    }
+    touchPinchStartBoundsRef.current = null;
+  }, [setViewBoundsWithZoom, viewBounds]);
+
+  const handleTouchDoubleTap = useCallback((x: number, y: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Switch to Julia set at this point
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+    const complex = {
+      real: viewBounds.minReal + (x / canvas.width) * realRange,
+      imag: viewBounds.maxImag - (y / canvas.height) * imagRange,
+    };
+    switchToJulia(complex);
+  }, [viewBounds, switchToJulia]);
+
+  // Handle single tap - check if near a suggestion marker
+  const handleTouchSingleTap = useCallback((x: number, y: number) => {
+    if (!showSuggestionsPanel || suggestions.length === 0) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const cssX = x / dpr;
+    const cssY = y / dpr;
+    const tapRadius = 30; // Larger radius for touch
+
+    // Check if tap is near any suggestion marker
+    for (const suggestion of suggestions) {
+      const screenCoords = getScreenCoords(suggestion.point);
+      if (screenCoords) {
+        const dx = cssX - screenCoords.x;
+        const dy = cssY - screenCoords.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < tapRadius) {
+          // Tapped near this suggestion - preview it
+          setHighlightedSuggestion(suggestion.id);
+          setHeatmapPreviewConstant(suggestion.point);
+          return;
+        }
+      }
+    }
+  }, [showSuggestionsPanel, suggestions, getScreenCoords, setHighlightedSuggestion, setHeatmapPreviewConstant]);
+
+  // Apply touch gestures to container
+  // Use 'explore' mode: single-finger updates preview, two-finger handles zoom+pan together
+  useTouchGestures(containerRef as React.RefObject<HTMLElement>, {
+    onSingleFingerMove: handleTouchSingleFingerMove,
+    onPinchStart: handleTouchPinchStart,
+    onPinchMove: handleTouchPinchMove, // Handles both zoom and pan in one calculation
+    onPinchEnd: handleTouchPinchEnd,
+    onDoubleTap: handleTouchDoubleTap,
+    onSingleTap: handleTouchSingleTap,
+  }, { singleFingerMode: 'explore' });
 
   return (
     <div ref={containerRef} className="w-full h-full relative">
@@ -400,6 +613,16 @@ export function HeatmapExplorer() {
 
       {/* AI Suggestions Panel */}
       <SuggestionsPanel />
+
+      {/* Preview frozen indicator */}
+      {isPreviewFrozen && heatmapPreviewConstant && (
+        <div className="absolute top-4 left-4 bg-purple-600/90 text-white text-xs px-3 py-1.5 rounded-lg shadow-lg z-10 flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          Preview frozen (release Ctrl)
+        </div>
+      )}
 
       {/* WebGL unavailable overlay */}
       {webglUnavailable && (
@@ -464,13 +687,15 @@ function SuggestionMarker({ suggestion, screenCoords, isHighlighted }: Suggestio
   const size = isHighlighted ? 16 : 12;
   const pulseClass = isHighlighted ? 'animate-pulse' : '';
 
+  // All pointer events are disabled - hover and tap detection handled by HeatmapExplorer
   return (
     <div
-      className={`absolute pointer-events-none transform -translate-x-1/2 -translate-y-1/2 ${pulseClass}`}
+      className={`absolute transform -translate-x-1/2 -translate-y-1/2 ${pulseClass}`}
       style={{
         left: screenCoords.x,
         top: screenCoords.y,
         zIndex: isHighlighted ? 5 : 4,
+        pointerEvents: 'none',
       }}
     >
       {/* Outer ring */}

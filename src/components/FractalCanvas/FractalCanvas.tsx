@@ -3,7 +3,8 @@ import { useFractalStore } from '../../store/fractalStore';
 import { WebGLRenderer, checkWebGLSupport } from '../../webgl/renderer';
 import { renderCanvas2DParallel } from '../../lib/canvas2dRenderer';
 import { PRESET_PALETTES, generateShaderPalette, applyTemperatureToPalette } from '../../lib/colors';
-import type { SelectionRect } from '../../types';
+import { useTouchGestures } from '../../hooks/useTouchGestures';
+import type { SelectionRect, ViewBounds } from '../../types';
 
 export function FractalCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -22,6 +23,7 @@ export function FractalCanvas() {
   const {
     viewBounds,
     setViewBounds,
+    setViewBoundsWithZoom,
     maxIterations,
     renderMode,
     selection,
@@ -68,6 +70,10 @@ export function FractalCanvas() {
   const [panStart, setPanStart] = useState<{ x: number; y: number } | null>(null);
   const [panStartBounds, setPanStartBounds] = useState<typeof viewBounds | null>(null);
   const renderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Touch gesture state
+  const touchPanStartBoundsRef = useRef<ViewBounds | null>(null);
+  const touchPinchStartBoundsRef = useRef<ViewBounds | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -422,6 +428,117 @@ export function FractalCanvas() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fractalType, saveCurrentJulia]);
+
+  // Touch gesture handlers
+  const handleTouchPanStart = useCallback(() => {
+    touchPanStartBoundsRef.current = { ...viewBounds };
+  }, [viewBounds]);
+
+  const handleTouchPanMove = useCallback((_x: number, _y: number, deltaX: number, deltaY: number) => {
+    const canvas = showCanvas2D ? canvas2DRef.current : canvasRef.current;
+    if (!canvas) return;
+
+    const realRange = viewBounds.maxReal - viewBounds.minReal;
+    const imagRange = viewBounds.maxImag - viewBounds.minImag;
+
+    // Convert pixel delta to complex plane delta
+    const deltaReal = (-deltaX / canvas.width) * realRange;
+    const deltaImag = (deltaY / canvas.height) * imagRange;
+
+    setViewBounds({
+      minReal: viewBounds.minReal + deltaReal,
+      maxReal: viewBounds.maxReal + deltaReal,
+      minImag: viewBounds.minImag + deltaImag,
+      maxImag: viewBounds.maxImag + deltaImag,
+    });
+  }, [viewBounds, setViewBounds, showCanvas2D]);
+
+  const handleTouchPanEnd = useCallback(() => {
+    if (touchPanStartBoundsRef.current) {
+      pushHistory({ viewBounds });
+    }
+    touchPanStartBoundsRef.current = null;
+  }, [viewBounds, pushHistory]);
+
+  const handleTouchPinchStart = useCallback(() => {
+    touchPinchStartBoundsRef.current = { ...viewBounds };
+  }, [viewBounds]);
+
+  const handleTouchPinchMove = useCallback((centerX: number, centerY: number, scale: number) => {
+    const canvas = showCanvas2D ? canvas2DRef.current : canvasRef.current;
+    if (!canvas || !touchPinchStartBoundsRef.current) return;
+
+    // Scale < 1 means fingers moving apart (zoom in)
+    // Scale > 1 means fingers moving together (zoom out)
+    const zoomFactor = 1 / scale;
+
+    // Get the complex coordinates at the pinch center
+    const bounds = touchPinchStartBoundsRef.current;
+    const realRange = bounds.maxReal - bounds.minReal;
+    const imagRange = bounds.maxImag - bounds.minImag;
+
+    const centerReal = bounds.minReal + (centerX / canvas.width) * realRange;
+    const centerImag = bounds.maxImag - (centerY / canvas.height) * imagRange;
+
+    // Calculate new range
+    const newRealRange = realRange * zoomFactor;
+    const newImagRange = imagRange * zoomFactor;
+
+    // Calculate ratio of center point in the view
+    const ratioX = centerX / canvas.width;
+    const ratioY = centerY / canvas.height;
+
+    const newBounds: ViewBounds = {
+      minReal: centerReal - ratioX * newRealRange,
+      maxReal: centerReal + (1 - ratioX) * newRealRange,
+      minImag: centerImag - (1 - ratioY) * newImagRange,
+      maxImag: centerImag + ratioY * newImagRange,
+    };
+
+    // Update bounds and zoom factor (without committing to history)
+    setViewBoundsWithZoom(newBounds, false);
+
+    // Update start bounds for continuous pinching (use the NEW bounds, not stale viewBounds)
+    touchPinchStartBoundsRef.current = newBounds;
+  }, [setViewBoundsWithZoom, showCanvas2D]);
+
+  const handleTouchPinchEnd = useCallback(() => {
+    if (touchPinchStartBoundsRef.current) {
+      // Commit the final bounds to history
+      setViewBoundsWithZoom(touchPinchStartBoundsRef.current, true);
+    }
+    touchPinchStartBoundsRef.current = null;
+  }, [setViewBoundsWithZoom]);
+
+  const handleTouchDoubleTap = useCallback((x: number, y: number) => {
+    const canvas = showCanvas2D ? canvas2DRef.current : canvasRef.current;
+    if (!canvas) return;
+
+    if (fractalType === 'mandelbrot') {
+      // Switch to Julia set at this point
+      const realRange = viewBounds.maxReal - viewBounds.minReal;
+      const imagRange = viewBounds.maxImag - viewBounds.minImag;
+      const complex = {
+        real: viewBounds.minReal + (x / canvas.width) * realRange,
+        imag: viewBounds.maxImag - (y / canvas.height) * imagRange,
+      };
+      switchToJulia(complex);
+    } else {
+      // Zoom in at this point
+      zoomAtPoint(x, y, 0.5, canvas.width, canvas.height);
+    }
+  }, [fractalType, viewBounds, switchToJulia, zoomAtPoint, showCanvas2D]);
+
+  // Apply touch gestures to container
+  useTouchGestures(containerRef as React.RefObject<HTMLElement>, {
+    onPanStart: handleTouchPanStart,
+    onPanMove: handleTouchPanMove,
+    onPanEnd: handleTouchPanEnd,
+    onPinchStart: handleTouchPinchStart,
+    onPinchMove: handleTouchPinchMove,
+    onPinchEnd: handleTouchPinchEnd,
+    onDoubleTap: handleTouchDoubleTap,
+  });
 
   return (
     <div ref={containerRef} className="w-full h-full relative">

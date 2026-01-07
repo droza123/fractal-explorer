@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState, useMemo, useLayoutEffect } fr
 import { useFractalStore } from '../../store/fractalStore';
 import { WebGLRenderer, checkWebGLSupport } from '../../webgl/renderer';
 import { PRESET_PALETTES, generateShaderPalette, applyTemperatureToPalette } from '../../lib/colors';
+import { useTouchGestures } from '../../hooks/useTouchGestures';
 
 export function Mandelbulb3D() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -179,6 +180,25 @@ export function Mandelbulb3D() {
       setDragStart(null);
     }
   }, [isDragging]);
+
+  // Touch gesture handlers for 3D
+  const handleTouchPanMove = useCallback((_x: number, _y: number, deltaX: number, deltaY: number) => {
+    // Rotate camera based on drag
+    rotateCamera3D(deltaX, deltaY);
+  }, [rotateCamera3D]);
+
+  const handleTouchPinchMove = useCallback((_centerX: number, _centerY: number, scale: number) => {
+    // Scale < 1 means fingers apart (zoom in), scale > 1 means fingers together (zoom out)
+    // Convert to a delta similar to wheel - negative zooms in, positive zooms out
+    const delta = (1 - scale) * 500; // Scale factor for sensitivity
+    zoomCamera3D(delta);
+  }, [zoomCamera3D]);
+
+  // Apply touch gestures to container
+  useTouchGestures(containerRef as React.RefObject<HTMLElement>, {
+    onPanMove: handleTouchPanMove,
+    onPinchMove: handleTouchPinchMove,
+  });
 
   return (
     <div ref={containerRef} className="w-full h-full relative">

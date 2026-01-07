@@ -15,6 +15,8 @@ export function JuliaPreview() {
     equationId,
     maxIterations,
     setThumbnailCanvas,
+    saveCurrentJulia,
+    switchToJulia,
     currentPaletteId,
     colorTemperature,
     customPalettes,
@@ -134,7 +136,10 @@ export function JuliaPreview() {
 
   return (
     <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
-      <div className="text-xs text-gray-300 font-medium mb-2">Julia Preview</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs text-gray-300 font-medium">Julia Preview</div>
+        <div className="text-xs text-gray-500">Ctrl to freeze</div>
+      </div>
       <div
         ref={containerRef}
         className="w-full aspect-video relative bg-black rounded overflow-hidden"
@@ -150,20 +155,36 @@ export function JuliaPreview() {
         )}
         {!heatmapPreviewConstant && !contextLost && (
           <div className="absolute inset-0 flex items-center justify-center text-gray-500 text-xs text-center p-2">
-            Hover over heatmap
+            Move over heatmap to preview
           </div>
         )}
       </div>
       {heatmapPreviewConstant && (
-        <div className="mt-2 space-y-1">
+        <div className="mt-2 space-y-2">
           <div className="text-xs text-gray-400 font-mono">
             c = {heatmapPreviewConstant.real.toFixed(4)}{heatmapPreviewConstant.imag >= 0 ? '+' : ''}{heatmapPreviewConstant.imag.toFixed(4)}i
           </div>
-          <div className="text-xs text-gray-500">
-            Double-click to open
-          </div>
-          <div className="text-xs text-gray-500">
-            Space to save
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => switchToJulia(heatmapPreviewConstant)}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium transition-colors"
+              title="Open this Julia set in full view"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open
+            </button>
+            <button
+              onClick={() => saveCurrentJulia()}
+              className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-white text-xs font-medium transition-colors"
+              title="Save this Julia set to collection"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Save
+            </button>
           </div>
         </div>
       )}

@@ -64,10 +64,10 @@ export function applyTemperatureToPalette(palette: RGB[], temperature: number): 
 }
 
 // Preset palettes matching the original app
-// Default: Cyan → Dark Purple/Magenta → Red/Pink
-export const PALETTE_DEFAULT: ColorPalette = {
-  id: 'default',
-  name: 'Default',
+// Amethyst: Cyan → Dark Purple/Magenta → Red/Pink
+export const PALETTE_AMETHYST: ColorPalette = {
+  id: 'amethyst',
+  name: 'Amethyst',
   colors: [
     { r: 0, g: 128, b: 128 },    // Teal/Cyan
     { r: 0, g: 64, b: 128 },     // Dark Cyan-Blue
@@ -263,10 +263,10 @@ export const PALETTE_EMBER: ColorPalette = {
 
 // Classic fractal palettes
 
-// Original: The original HSV-based coloring from before the palette system
-export const PALETTE_ORIGINAL: ColorPalette = {
-  id: 'original',
-  name: 'Original',
+// Spectrum: The original HSV-based coloring from before the palette system
+export const PALETTE_SPECTRUM: ColorPalette = {
+  id: 'spectrum',
+  name: 'Spectrum',
   colors: [
     { r: 0, g: 0, b: 40 },       // Very dark blue
     { r: 0, g: 32, b: 128 },     // Dark blue
@@ -359,15 +359,15 @@ export const PALETTE_AQUA: ColorPalette = {
   ],
 };
 
-// All preset palettes
+// All preset palettes (Classic is the default)
 export const PRESET_PALETTES: ColorPalette[] = [
-  PALETTE_ORIGINAL,
-  PALETTE_DEFAULT,
+  PALETTE_CLASSIC,
+  PALETTE_SPECTRUM,
+  PALETTE_AMETHYST,
   PALETTE_B,
   PALETTE_C,
   PALETTE_RAINBOW,
   PALETTE_FIRE,
-  PALETTE_CLASSIC,
   PALETTE_ELECTRIC,
   PALETTE_NEON,
   PALETTE_COSMIC,

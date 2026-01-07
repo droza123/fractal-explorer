@@ -12,8 +12,8 @@ export function SuggestionsPanel() {
     setShowSuggestionsPanel,
     setHighlightedSuggestion,
     generateSuggestions,
-    applySuggestion,
     setHeatmapPreviewConstant,
+    switchToJulia,
     fractalType,
   } = useFractalStore();
 
@@ -37,9 +37,16 @@ export function SuggestionsPanel() {
     setHighlightedSuggestion(null);
   }, [setHighlightedSuggestion]);
 
+  // Click/tap just previews (same as hover)
   const handleClick = useCallback((suggestion: SuggestedPoint) => {
-    applySuggestion(suggestion);
-  }, [applySuggestion]);
+    setHighlightedSuggestion(suggestion.id);
+    setHeatmapPreviewConstant(suggestion.point);
+  }, [setHighlightedSuggestion, setHeatmapPreviewConstant]);
+
+  // Double-click opens Julia view (mouse users)
+  const handleDoubleClick = useCallback((suggestion: SuggestedPoint) => {
+    switchToJulia(suggestion.point);
+  }, [switchToJulia]);
 
   // Don't render in non-heatmap mode
   if (fractalType !== 'heatmap') return null;
@@ -109,7 +116,7 @@ export function SuggestionsPanel() {
         ) : (
           <div className="p-2">
             <p className="text-xs text-gray-500 px-2 mb-2">
-              Hover to preview, click to explore
+              Hover to preview, double-click to explore
             </p>
             {suggestions.map((suggestion) => (
               <SuggestionItem
@@ -119,6 +126,7 @@ export function SuggestionsPanel() {
                 onMouseEnter={() => handleMouseEnter(suggestion)}
                 onMouseLeave={handleMouseLeave}
                 onClick={() => handleClick(suggestion)}
+                onDoubleClick={() => handleDoubleClick(suggestion)}
               />
             ))}
           </div>
@@ -149,9 +157,10 @@ interface SuggestionItemProps {
   onMouseEnter: () => void;
   onMouseLeave: () => void;
   onClick: () => void;
+  onDoubleClick: () => void;
 }
 
-function SuggestionItem({ suggestion, isHighlighted, onMouseEnter, onMouseLeave, onClick }: SuggestionItemProps) {
+function SuggestionItem({ suggestion, isHighlighted, onMouseEnter, onMouseLeave, onClick, onDoubleClick }: SuggestionItemProps) {
   const categoryColor = getCategoryColor(suggestion.category);
   const categoryIcon = getCategoryIcon(suggestion.category);
 
@@ -165,6 +174,7 @@ function SuggestionItem({ suggestion, isHighlighted, onMouseEnter, onMouseLeave,
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
     >
       <div className="flex items-start gap-2">
         <span

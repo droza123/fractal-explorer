@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint, ExportSettings, ExportProgress } from '../types';
 import { addPoint, deletePoint, updatePoint, getAllPoints, getAllCustomPalettes, addCustomPalette as dbAddCustomPalette, updateCustomPalette as dbUpdateCustomPalette, deleteCustomPalette as dbDeleteCustomPalette } from '../db/database';
 import type { RGB } from '../lib/colors';
@@ -131,7 +132,9 @@ const initialState = {
   maxIterations: 256,
 };
 
-export const useFractalStore = create<FractalStore>((set, get) => ({
+export const useFractalStore = create<FractalStore>()(
+  persist(
+    (set, get) => ({
   viewBounds: initialState.viewBounds,
   maxIterations: 256,
   renderMode: 'webgl',
@@ -151,7 +154,7 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   thumbnailCanvas: null,
   showSaveIndicator: false,
   // Color system state
-  currentPaletteId: 'default',
+  currentPaletteId: 'classic',
   colorTemperature: 0,
   customPalettes: [],
   showColorSelector: false,
@@ -173,8 +176,22 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   exportProgress: null,
   exportSettings: loadExportSettings(),
   exportAbortController: null,
+  // UI Collapsed States (default to expanded)
+  qualityCollapsed: false,
+  savedJuliasCollapsed: false,
+  infoCollapsed: false,
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
+
+  setViewBoundsWithZoom: (bounds, commit = false) => {
+    const { fractalType, pushHistory } = get();
+    const newZoomFactor = getZoomFactorFromBounds(bounds, fractalType);
+    if (commit) {
+      pushHistory({ viewBounds: bounds, juliaZoomFactor: newZoomFactor });
+    } else {
+      set({ viewBounds: bounds, juliaZoomFactor: newZoomFactor });
+    }
+  },
 
   setMaxIterations: (iterations) => {
     const { pushHistory } = get();
@@ -354,6 +371,8 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
   setFractalType: (type: FractalType) => set({ fractalType: type }),
 
   setJuliaConstant: (c: Complex) => set({ juliaConstant: c }),
+
+  resetJuliaConstant: () => set({ juliaConstant: { ...DEFAULT_JULIA_CONSTANT } }),
 
   setEquationId: (id: number) => {
     const { fractalType, juliaZoomFactor, pushHistory } = get();
@@ -777,4 +796,29 @@ export const useFractalStore = create<FractalStore>((set, get) => ({
       exportAbortController.abort();
     }
   },
-}));
+
+  // UI Collapsed State actions
+  setQualityCollapsed: (collapsed) => set({ qualityCollapsed: collapsed }),
+  setSavedJuliasCollapsed: (collapsed) => set({ savedJuliasCollapsed: collapsed }),
+  setInfoCollapsed: (collapsed) => set({ infoCollapsed: collapsed }),
+}),
+    {
+      name: 'fractal-settings',
+      version: 1,
+      partialize: (state) => ({
+        // Persist user preferences (not transient exploration state)
+        maxIterations: state.maxIterations,
+        currentPaletteId: state.currentPaletteId,
+        colorTemperature: state.colorTemperature,
+        customPalettes: state.customPalettes,
+        renderQuality2D: state.renderQuality2D,
+        renderQuality: state.renderQuality,
+        lightingParams: state.lightingParams,
+        // UI collapsed states
+        qualityCollapsed: state.qualityCollapsed,
+        savedJuliasCollapsed: state.savedJuliasCollapsed,
+        infoCollapsed: state.infoCollapsed,
+      }),
+    }
+  )
+);

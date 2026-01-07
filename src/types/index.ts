@@ -149,6 +149,10 @@ export interface FractalState {
   exportProgress: ExportProgress | null;
   exportSettings: ExportSettings;
   exportAbortController: AbortController | null;
+  // UI Collapsed States
+  qualityCollapsed: boolean;
+  savedJuliasCollapsed: boolean;
+  infoCollapsed: boolean;
 }
 
 // Image Export
@@ -169,6 +173,7 @@ export interface ExportProgress {
 
 export interface FractalActions {
   setViewBounds: (bounds: ViewBounds) => void;
+  setViewBoundsWithZoom: (bounds: ViewBounds, commit?: boolean) => void;
   setMaxIterations: (iterations: number) => void;
   setRenderMode: (mode: RenderMode) => void;
   setIsRendering: (rendering: boolean) => void;
@@ -183,6 +188,7 @@ export interface FractalActions {
   resetView: () => void;
   setFractalType: (type: FractalType) => void;
   setJuliaConstant: (c: Complex) => void;
+  resetJuliaConstant: () => void;
   setEquationId: (id: number) => void;
   setJuliaZoomFactor: (factor: number, commit?: boolean) => void;
   setShowEquationSelector: (show: boolean) => void;
@@ -234,6 +240,10 @@ export interface FractalActions {
   startExport: () => Promise<void>;
   cancelExport: () => void;
   setExportProgress: (progress: ExportProgress | null) => void;
+  // UI Collapsed State actions
+  setQualityCollapsed: (collapsed: boolean) => void;
+  setSavedJuliasCollapsed: (collapsed: boolean) => void;
+  setInfoCollapsed: (collapsed: boolean) => void;
 }
 
 export type FractalStore = FractalState & FractalActions;
