@@ -1146,8 +1146,8 @@ export const useFractalStore = create<FractalStore>()(
         savedJuliasCollapsed: state.savedJuliasCollapsed,
         infoCollapsed: state.infoCollapsed,
         animationPanelCollapsed: state.animationPanelCollapsed,
-        // Persist current keyframes as working draft (strip thumbnails to save space)
-        keyframes: state.keyframes.map(kf => ({ ...kf, thumbnail: null })),
+        // Persist current keyframes as working draft (thumbnails are ~3KB each, acceptable for localStorage)
+        keyframes: state.keyframes,
       }),
     }
   )
