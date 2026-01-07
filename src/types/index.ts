@@ -167,6 +167,9 @@ export interface FractalState {
   videoExportAbortController: AbortController | null;
   // Animation UI
   animationPanelCollapsed: boolean;
+  // Saved items dialogs
+  showSavedAnimationsDialog: boolean;
+  showSavedJuliasDialog: boolean;
 }
 
 // Image Export
@@ -293,6 +296,9 @@ export interface FractalActions {
   setIsExportingVideo: (exporting: boolean) => void;
   setVideoExportAbortController: (controller: AbortController | null) => void;
   cancelVideoExport: () => void;
+  // Saved items dialogs
+  setShowSavedAnimationsDialog: (show: boolean) => void;
+  setShowSavedJuliasDialog: (show: boolean) => void;
 }
 
 export type FractalStore = FractalState & FractalActions;

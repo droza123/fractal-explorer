@@ -239,6 +239,9 @@ export const useFractalStore = create<FractalStore>()(
   videoExportAbortController: null as AbortController | null,
   // Animation UI
   animationPanelCollapsed: true,
+  // Saved items dialogs
+  showSavedAnimationsDialog: false,
+  showSavedJuliasDialog: false,
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
 
@@ -931,6 +934,10 @@ export const useFractalStore = create<FractalStore>()(
   // Animation System actions
   setAnimationPanelCollapsed: (collapsed) => set({ animationPanelCollapsed: collapsed }),
 
+  // Saved items dialogs
+  setShowSavedAnimationsDialog: (show) => set({ showSavedAnimationsDialog: show }),
+  setShowSavedJuliasDialog: (show) => set({ showSavedJuliasDialog: show }),
+
   addKeyframe: () => {
     const state = get();
     // Only allow adding keyframes for 2D fractals (mandelbrot, julia)
@@ -1139,6 +1146,8 @@ export const useFractalStore = create<FractalStore>()(
         savedJuliasCollapsed: state.savedJuliasCollapsed,
         infoCollapsed: state.infoCollapsed,
         animationPanelCollapsed: state.animationPanelCollapsed,
+        // Persist current keyframes as working draft (strip thumbnails to save space)
+        keyframes: state.keyframes.map(kf => ({ ...kf, thumbnail: null })),
       }),
     }
   )

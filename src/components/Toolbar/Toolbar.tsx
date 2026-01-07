@@ -1,11 +1,7 @@
-import { useState, useRef } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { equations } from '../../lib/equations';
 import { JuliaPreview } from '../JuliaPreview/JuliaPreview';
-import { SavedPointsList } from '../SavedPointsList/SavedPointsList';
-import { ManualPointEntry } from '../ManualPointEntry/ManualPointEntry';
 import { AnimationPanel } from '../AnimationPanel';
-import { exportPoints, importPoints } from '../../db/database';
 
 export function Toolbar() {
   const {
@@ -43,34 +39,17 @@ export function Toolbar() {
     history,
     historyIndex,
     savedJulias,
-    loadSavedJuliasFromDb,
     showSaveIndicator,
     isHighPrecisionActive,
     setShowExportDialog,
     // UI collapsed states (persisted)
     qualityCollapsed,
     setQualityCollapsed,
-    savedJuliasCollapsed,
-    setSavedJuliasCollapsed,
     infoCollapsed,
     setInfoCollapsed,
+    // Saved items dialogs
+    setShowSavedJuliasDialog,
   } = useFractalStore();
-
-  const [showManualEntry, setShowManualEntry] = useState(false);
-  const [compactView, setCompactView] = useState(false);
-  const [sortByRecent, setSortByRecent] = useState(true); // true = recent first, false = alphabetical
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Sort saved julias based on current sort preference
-  const sortedSavedJulias = [...savedJulias].sort((a, b) => {
-    if (sortByRecent) {
-      // Recent first (by id, higher = more recent)
-      return (b.id ?? 0) - (a.id ?? 0);
-    } else {
-      // Alphabetical by name
-      return a.name.localeCompare(b.name);
-    }
-  });
 
   // Compute these from state directly so component re-renders when they change
   const canGoBack = historyIndex > 0;
@@ -111,46 +90,6 @@ export function Toolbar() {
 
   const handleZoomFactorCommit = () => {
     setJuliaZoomFactor(juliaZoomFactor, true); // Commit to history on release
-  };
-
-  const handleExport = async () => {
-    const json = await exportPoints();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `julia-sets-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const text = await file.text();
-      const result = await importPoints(text);
-      await loadSavedJuliasFromDb();
-
-      if (result.imported === 0 && result.skipped > 0) {
-        alert(`All ${result.skipped} Julia sets were already in your collection.`);
-      } else if (result.skipped > 0) {
-        alert(`Imported ${result.imported} Julia sets.\n${result.skipped} duplicates were skipped.`);
-      } else {
-        alert(`Imported ${result.imported} Julia sets successfully.`);
-      }
-    } catch (err) {
-      alert('Failed to import. Please check the file format.');
-      console.error(err);
-    }
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const currentEquation = equations.find(e => e.id === equationId);
@@ -341,91 +280,24 @@ export function Toolbar() {
         <AnimationPanel />
       )}
 
-      {/* Saved Julia sets - only in Julia mode (above Quality) */}
-      {fractalType === 'julia' && (
+      {/* Saved Julia sets button - only in Julia mode */}
+      {fractalType === 'julia' && savedJulias.length > 0 && (
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
-          {/* Header - always visible */}
-          <div className="flex items-center justify-between p-2">
-            <button
-              onClick={() => setSavedJuliasCollapsed(!savedJuliasCollapsed)}
-              className="flex items-center gap-1 text-xs text-gray-300 font-medium hover:text-gray-100"
-            >
-              <svg
-                className={`w-3 h-3 transition-transform ${savedJuliasCollapsed ? '' : 'rotate-90'}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <button
+            onClick={() => setShowSavedJuliasDialog(true)}
+            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+            title="Manage saved Julia sets"
+          >
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
               </svg>
-              Saved Julia Sets ({savedJulias.length})
-            </button>
-            <div className="flex gap-1">
-              {!savedJuliasCollapsed && (
-                <>
-                  <button
-                    onClick={() => setSortByRecent(!sortByRecent)}
-                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                    title={sortByRecent ? 'Sorted by recent - click for alphabetical' : 'Sorted alphabetically - click for recent'}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {sortByRecent ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-                      )}
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => setCompactView(!compactView)}
-                    className={`p-1 rounded hover:bg-gray-700 transition-colors ${compactView ? 'text-purple-400' : 'text-gray-400 hover:text-gray-200'}`}
-                    title={compactView ? 'Switch to detailed view' : 'Switch to compact view'}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      {compactView ? (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                      ) : (
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                      )}
-                    </svg>
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => setShowManualEntry(true)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
-                title="Add point manually"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
-                title="Import Julia Sets"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                </svg>
-              </button>
-              <button
-                onClick={handleExport}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200"
-                title="Export Saved Julia Sets"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-              </button>
+              Saved Julia Sets
             </div>
-          </div>
-          {/* Collapsible content */}
-          {!savedJuliasCollapsed && (
-            <div className={`px-2 pb-2 overflow-y-auto ${compactView ? 'max-h-52' : 'max-h-48'}`}>
-              <SavedPointsList compact={compactView} sortedJulias={sortedSavedJulias} />
-            </div>
-          )}
+            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
+              {savedJulias.length}
+            </span>
+          </button>
         </div>
       )}
 
@@ -1051,21 +923,6 @@ export function Toolbar() {
           </div>
         )}
       </div>
-
-      {/* Hidden file input for import */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json"
-        onChange={handleImport}
-        className="hidden"
-      />
-
-      {/* Manual point entry modal */}
-      <ManualPointEntry
-        isOpen={showManualEntry}
-        onClose={() => setShowManualEntry(false)}
-      />
 
       {/* Save indicator - fixed position floating notification */}
       {showSaveIndicator && (

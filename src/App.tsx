@@ -7,6 +7,8 @@ import { EquationSelector } from './components/EquationSelector';
 import { ColorPaletteSelector } from './components/ColorPaletteSelector';
 import { ExportDialog } from './components/ExportDialog';
 import { VideoExportDialog } from './components/VideoExportDialog';
+import { SavedAnimationsDialog } from './components/SavedAnimationsDialog';
+import { SavedJuliasDialog } from './components/SavedJuliasDialog';
 import { useFractalStore } from './store/fractalStore';
 
 function App() {
@@ -41,6 +43,8 @@ function App() {
       <ColorPaletteSelector />
       <ExportDialog />
       <VideoExportDialog />
+      <SavedAnimationsDialog />
+      <SavedJuliasDialog />
     </div>
   );
 }
