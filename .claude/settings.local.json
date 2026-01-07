@@ -7,7 +7,14 @@
       "Bash(npm install:*)",
       "Bash(npm run build:*)",
       "Bash(npm run lint)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Fractal Explorer with GPU/CPU rendering\n\nFeatures:\n- Mandelbrot and Julia set exploration with WebGL 2.0 rendering\n- 3D Mandelbulb visualization with ray marching\n- Heatmap mode for exploring Julia set parameter space\n- 57 different fractal equations\n- Customizable color palettes with temperature adjustment\n- High-precision CPU rendering for deep zooms (auto-switches from GPU)\n- Parallel CPU rendering with Web Workers\n- Anti-aliasing options for both GPU and CPU\n- WebGL context loss recovery\n- Save/load Julia set points with thumbnails (IndexedDB)\n- Undo/redo navigation history\n\nTechnical highlights:\n- React + TypeScript + Vite\n- Zustand for state management\n- WebGL 2.0 shaders with double-float emulation for high precision\n- Worker pool for parallel CPU rendering with progress indication\n- Debounced rendering to avoid intermediate zoom levels\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(where:*)",
+      "Bash(git commit:*)",
+      "Bash(cat:*)",
+      "Bash(npx pwa-assets-generator:*)",
+      "Bash(copy \"C:\\claudecode\\fractal\\public\\pwa-512x512.png\" \"C:\\claudecode\\fractal\\public\\og-image.png\")",
+      "Bash(node -e:*)"
     ]
   }
 }

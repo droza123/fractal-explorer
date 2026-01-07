@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#030712"/>
+      <stop offset="100%" style="stop-color:#111827"/>
+    </linearGradient>
+    <linearGradient id="spiral1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#c084fc"/>
+    </linearGradient>
+    <linearGradient id="spiral2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#a855f7"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="spiral3" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#c084fc"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="innerGlow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="248" fill="url(#bg)" stroke="#374151" stroke-width="4"/>
+
+  <!-- Fractal spiral arms -->
+  <g filter="url(#glow)" transform="translate(256, 256)">
+
+    <!-- Main logarithmic spiral - outer arm -->
+    <path d="M 0,0
+             Q 20,-40 60,-60
+             Q 120,-80 160,-40
+             Q 200,20 180,80
+             Q 150,140 80,160
+             Q 0,175 -60,140
+             Q -120,100 -140,30
+             Q -155,-50 -120,-110
+             Q -70,-160 20,-170
+             Q 110,-170 170,-120
+             Q 220,-60 210,30"
+          fill="none"
+          stroke="url(#spiral1)"
+          stroke-width="28"
+          stroke-linecap="round"
+          opacity="0.9"/>
+
+    <!-- Second spiral arm (rotated 180 degrees) -->
+    <path d="M 0,0
+             Q -20,40 -60,60
+             Q -120,80 -160,40
+             Q -200,-20 -180,-80
+             Q -150,-140 -80,-160
+             Q 0,-175 60,-140
+             Q 120,-100 140,-30
+             Q 155,50 120,110
+             Q 70,160 -20,170
+             Q -110,170 -170,120
+             Q -220,60 -210,-30"
+          fill="none"
+          stroke="url(#spiral2)"
+          stroke-width="28"
+          stroke-linecap="round"
+          opacity="0.9"/>
+
+    <!-- Inner spiral detail -->
+    <path d="M 0,0
+             Q 10,-20 30,-30
+             Q 60,-40 80,-20
+             Q 100,10 90,40
+             Q 75,70 40,80
+             Q 0,88 -30,70
+             Q -60,50 -70,15
+             Q -78,-25 -60,-55
+             Q -35,-80 10,-85
+             Q 55,-85 85,-60
+             Q 110,-30 105,15"
+          fill="none"
+          stroke="url(#spiral3)"
+          stroke-width="16"
+          stroke-linecap="round"
+          opacity="0.8"/>
+
+    <!-- Center glow point -->
+    <circle cx="0" cy="0" r="12" fill="#c084fc" filter="url(#innerGlow)"/>
+    <circle cx="0" cy="0" r="6" fill="#ffffff" opacity="0.9"/>
+
+    <!-- Small decorative spiraling dots -->
+    <circle cx="45" cy="-50" r="6" fill="#a855f7" opacity="0.7"/>
+    <circle cx="75" cy="-35" r="5" fill="#c084fc" opacity="0.6"/>
+    <circle cx="95" cy="-5" r="4" fill="#a855f7" opacity="0.5"/>
+
+    <circle cx="-45" cy="50" r="6" fill="#a855f7" opacity="0.7"/>
+    <circle cx="-75" cy="35" r="5" fill="#c084fc" opacity="0.6"/>
+    <circle cx="-95" cy="5" r="4" fill="#a855f7" opacity="0.5"/>
+
+    <!-- Outer decorative dots following spiral -->
+    <circle cx="140" cy="-80" r="8" fill="#7c3aed" opacity="0.6"/>
+    <circle cx="175" cy="-20" r="7" fill="#a855f7" opacity="0.5"/>
+    <circle cx="165" cy="60" r="6" fill="#c084fc" opacity="0.4"/>
+
+    <circle cx="-140" cy="80" r="8" fill="#7c3aed" opacity="0.6"/>
+    <circle cx="-175" cy="20" r="7" fill="#a855f7" opacity="0.5"/>
+    <circle cx="-165" cy="-60" r="6" fill="#c084fc" opacity="0.4"/>
+  </g>
+</svg>
