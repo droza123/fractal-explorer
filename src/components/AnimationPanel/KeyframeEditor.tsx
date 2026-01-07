@@ -13,7 +13,7 @@ const EASING_OPTIONS: { value: EasingFunction; label: string; description: strin
   { value: 'ease-in-out', label: 'Ease In-Out', description: 'Smooth start and end' },
 ];
 
-const DURATION_PRESETS = [500, 1000, 2000, 3000, 5000];
+const DURATION_PRESETS = [500, 1000, 2000, 5000, 10000];
 
 export function KeyframeEditor({ keyframeId }: KeyframeEditorProps) {
   const {

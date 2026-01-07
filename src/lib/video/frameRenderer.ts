@@ -390,8 +390,8 @@ export interface FrameRenderResult {
 // Get resolution dimensions from settings
 export function getResolutionDimensions(
   settings: VideoExportSettings,
-  canvasWidth: number,
-  canvasHeight: number
+  _canvasWidth?: number,
+  _canvasHeight?: number
 ): { width: number; height: number } {
   switch (settings.resolution) {
     case '720p':
@@ -400,14 +400,14 @@ export function getResolutionDimensions(
       return { width: 1920, height: 1080 };
     case '4k':
       return { width: 3840, height: 2160 };
+    case '8k':
+      return { width: 7680, height: 4320 };
     case 'custom':
+    default:
       return {
         width: settings.customWidth || 1920,
         height: settings.customHeight || 1080,
       };
-    case 'canvas':
-    default:
-      return { width: canvasWidth, height: canvasHeight };
   }
 }
 

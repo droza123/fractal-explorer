@@ -336,7 +336,7 @@ export type VideoRenderPrecision = 'auto' | 'gpu' | 'cpu';
 export interface VideoExportSettings {
   format: 'webm' | 'mp4';
   fps: 30 | 60;
-  resolution: 'canvas' | '720p' | '1080p' | '4k' | 'custom';
+  resolution: '720p' | '1080p' | '4k' | '8k' | 'custom';
   customWidth?: number;
   customHeight?: number;
   quality: number;                // Bitrate quality 0.1-1.0

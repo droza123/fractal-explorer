@@ -22,10 +22,10 @@ import {
 import type { VideoExportSettings, VideoRenderQuality, VideoRenderPrecision } from '../../types';
 
 const RESOLUTION_PRESETS: { value: VideoExportSettings['resolution']; label: string }[] = [
-  { value: 'canvas', label: 'Canvas Size' },
   { value: '720p', label: '720p (1280x720)' },
   { value: '1080p', label: '1080p (1920x1080)' },
   { value: '4k', label: '4K (3840x2160)' },
+  { value: '8k', label: '8K (7680x4320)' },
   { value: 'custom', label: 'Custom' },
 ];
 

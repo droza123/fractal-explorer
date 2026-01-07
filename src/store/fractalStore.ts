@@ -945,7 +945,7 @@ export const useFractalStore = create<FractalStore>()(
     const newKeyframe: AnimationKeyframe = {
       id: crypto.randomUUID(),
       timestamp: calculateTotalDuration(state.keyframes),
-      duration: 2000, // Default 2 second transition
+      duration: 5000, // Default 5 second transition
       easing: 'ease-in-out',
       viewBounds: { ...state.viewBounds },
       fractalType: state.fractalType,

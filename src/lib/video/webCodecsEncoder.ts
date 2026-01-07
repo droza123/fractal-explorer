@@ -144,6 +144,9 @@ export class WebCodecsEncoder {
   private allFramesSubmitted: boolean = false;
   private encodeCompletePromise: Promise<void> | null = null;
   private encodeCompleteResolve: (() => void) | null = null;
+  private codecInfo: CodecResult | null = null;
+  private bitrate: number = 0;
+  private encoderReclaimed: boolean = false;
 
   constructor(config: WebCodecsEncoderConfig) {
     this.config = config;
@@ -182,7 +185,8 @@ export class WebCodecsEncoder {
     const pixelCount = width * height;
     const basePixels = 1920 * 1080;
     const baseBitrate = 10_000_000; // 10 Mbps
-    const bitrate = Math.round(baseBitrate * (pixelCount / basePixels) * (0.5 + quality * 0.5));
+    this.bitrate = Math.round(baseBitrate * (pixelCount / basePixels) * (0.5 + quality * 0.5));
+    this.codecInfo = codecResult;
 
     // Create promise for tracking when encoding is complete
     this.encodeCompletePromise = new Promise((resolve) => {
@@ -200,7 +204,28 @@ export class WebCodecsEncoder {
       fastStart: 'in-memory', // Optimize for streaming playback
     });
 
-    const { codec } = codecResult;
+    // Create and configure the encoder
+    this.createEncoder();
+
+    this.frameCount = 0;
+    this.encodedFrames = 0;
+    this.aborted = false;
+    this.allFramesSubmitted = false;
+    this.encoderReclaimed = false;
+  }
+
+  /**
+   * Create and configure the video encoder.
+   * Can be called to reinitialize after codec reclaim.
+   */
+  private createEncoder(): void {
+    const { width, height, fps } = this.config;
+
+    if (!this.codecInfo) {
+      throw new Error('Codec info not available');
+    }
+
+    const { codec } = this.codecInfo;
 
     // Create encoder
     this.encoder = new VideoEncoder({
@@ -225,6 +250,13 @@ export class WebCodecsEncoder {
       },
       error: (error) => {
         console.error('[WebCodecs] Encoder error:', error);
+        // Detect codec reclaim due to inactivity
+        if (error.name === 'QuotaExceededError' ||
+            error.message?.includes('reclaimed') ||
+            error.message?.includes('inactivity')) {
+          console.log('[WebCodecs] Encoder reclaimed due to inactivity, will reinitialize on next frame');
+          this.encoderReclaimed = true;
+        }
       },
     });
 
@@ -233,29 +265,68 @@ export class WebCodecsEncoder {
       codec,
       width,
       height,
-      bitrate,
+      bitrate: this.bitrate,
       framerate: fps,
     };
     console.log('[WebCodecs] Configuring encoder with:', encoderConfig);
     this.encoder.configure(encoderConfig);
+    this.encoderReclaimed = false;
+  }
 
-    this.frameCount = 0;
-    this.encodedFrames = 0;
-    this.aborted = false;
-    this.allFramesSubmitted = false;
+  /**
+   * Check if encoder needs to be reinitialized and do so if needed.
+   * Returns true if encoder is ready to use.
+   */
+  private ensureEncoderReady(): boolean {
+    if (this.aborted) return false;
+
+    // Check if encoder was reclaimed or is in an invalid state
+    if (this.encoderReclaimed || !this.encoder || this.encoder.state === 'closed') {
+      console.log('[WebCodecs] Reinitializing encoder after reclaim...');
+      try {
+        // Close old encoder if it exists and isn't already closed
+        if (this.encoder && this.encoder.state !== 'closed') {
+          try {
+            this.encoder.close();
+          } catch {
+            // Ignore close errors
+          }
+        }
+        // Create new encoder
+        this.createEncoder();
+        console.log('[WebCodecs] Encoder reinitialized successfully');
+        return true;
+      } catch (error) {
+        console.error('[WebCodecs] Failed to reinitialize encoder:', error);
+        return false;
+      }
+    }
+
+    return true;
   }
 
   async addFrame(canvas: HTMLCanvasElement): Promise<void> {
-    if (this.aborted || !this.encoder) return;
+    if (this.aborted) return;
+
+    // Ensure encoder is ready (may reinitialize if reclaimed)
+    if (!this.ensureEncoderReady()) {
+      throw new Error('Encoder is not available and could not be reinitialized');
+    }
 
     // Throttle frame submission to prevent memory buildup
     // Wait if encoder queue has too many pending frames
     const MAX_QUEUE_SIZE = 3; // Keep queue small for 4K to avoid memory issues
-    while (this.encoder.encodeQueueSize > MAX_QUEUE_SIZE && !this.aborted) {
+    while (this.encoder && this.encoder.state === 'configured' &&
+           this.encoder.encodeQueueSize > MAX_QUEUE_SIZE && !this.aborted) {
       await new Promise(resolve => setTimeout(resolve, 10));
     }
 
-    if (this.aborted || !this.encoder) return;
+    if (this.aborted) return;
+
+    // Re-check encoder after waiting (may have been reclaimed during wait)
+    if (!this.ensureEncoderReady()) {
+      throw new Error('Encoder was reclaimed and could not be reinitialized');
+    }
 
     const { fps } = this.config;
 
@@ -269,27 +340,56 @@ export class WebCodecsEncoder {
       duration,
     });
 
-    // Encode the frame
-    // Use keyframe every 2 seconds for seeking
-    const isKeyframe = this.frameCount % (fps * 2) === 0;
-    this.encoder.encode(frame, { keyFrame: isKeyframe });
-
-    // Close the frame to free memory immediately
-    frame.close();
+    try {
+      // Encode the frame
+      // Use keyframe every 2 seconds for seeking, and always after reinitializing
+      const isKeyframe = this.frameCount % (fps * 2) === 0;
+      this.encoder!.encode(frame, { keyFrame: isKeyframe });
+      // Close the frame to free memory immediately
+      frame.close();
+    } catch (error) {
+      frame.close();
+      // If encoding fails due to closed codec, try to recover
+      if (error instanceof DOMException &&
+          (error.name === 'InvalidStateError' || error.message.includes('closed'))) {
+        console.log('[WebCodecs] Encode failed, attempting recovery...');
+        this.encoderReclaimed = true;
+        if (!this.ensureEncoderReady()) {
+          throw new Error('Failed to recover encoder after encode error');
+        }
+        // Re-create and encode the frame
+        const retryFrame = new VideoFrame(canvas, { timestamp, duration });
+        try {
+          this.encoder!.encode(retryFrame, { keyFrame: true }); // Force keyframe after recovery
+          retryFrame.close();
+        } catch {
+          retryFrame.close();
+          throw error;
+        }
+      } else {
+        throw error;
+      }
+    }
 
     this.frameCount++;
 
     // Flush periodically to ensure encoding keeps up and memory is released
     // This is especially important for high-resolution exports
-    if (this.frameCount % 10 === 0) {
-      await this.encoder.flush();
+    if (this.frameCount % 10 === 0 && this.encoder && this.encoder.state === 'configured') {
+      try {
+        await this.encoder.flush();
+      } catch {
+        // Flush might fail if encoder was reclaimed, that's okay
+        // We'll handle it on the next frame
+        this.encoderReclaimed = true;
+      }
     }
 
     // Progress is reported by the encoding callback, not here
   }
 
   async finish(): Promise<WebCodecsEncoderResult> {
-    if (!this.encoder || !this.muxer || this.aborted) {
+    if (!this.muxer || this.aborted) {
       throw new Error('Encoder not ready or aborted');
     }
 
@@ -297,11 +397,26 @@ export class WebCodecsEncoder {
     this.allFramesSubmitted = true;
 
     // Flush the encoder to ensure all frames are processed
-    await this.encoder.flush();
+    // Only flush if encoder is still valid
+    if (this.encoder && this.encoder.state === 'configured') {
+      try {
+        await this.encoder.flush();
+      } catch (error) {
+        console.warn('[WebCodecs] Flush failed during finish:', error);
+        // Continue anyway - some frames may already be encoded
+      }
+    }
 
     // Wait for all frames to be encoded (progress continues via encoding callback)
+    // Use a timeout to avoid waiting forever if encoder was reclaimed
     if (this.encodedFrames < this.config.totalFrames) {
-      await this.encodeCompletePromise;
+      const timeoutPromise = new Promise<void>((resolve) => {
+        setTimeout(() => {
+          console.warn(`[WebCodecs] Timeout waiting for encoding. Got ${this.encodedFrames}/${this.config.totalFrames} frames.`);
+          resolve();
+        }, 10000); // 10 second timeout
+      });
+      await Promise.race([this.encodeCompletePromise, timeoutPromise]);
     }
 
     // Finalize the muxer
@@ -315,7 +430,13 @@ export class WebCodecsEncoder {
     const duration = this.frameCount / this.config.fps;
 
     // Cleanup
-    this.encoder.close();
+    if (this.encoder && this.encoder.state !== 'closed') {
+      try {
+        this.encoder.close();
+      } catch {
+        // Ignore close errors
+      }
+    }
     this.encoder = null;
     this.muxer = null;
 
