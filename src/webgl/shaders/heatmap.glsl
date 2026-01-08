@@ -167,8 +167,8 @@ int mandelbrotEscapeTime(vec2 c, int maxIter) {
     return maxIter;
 }
 
-// Check if equation is computationally expensive (exp-based equations)
-bool isExpensiveEquation() {
+// Check if equation uses exp() directly - very expensive
+bool isExpBasedEquation() {
     return u_equation == 13 || u_equation == 14 || u_equation == 15 ||
            u_equation == 20 || u_equation == 21 || u_equation == 31 ||
            u_equation == 35 || u_equation == 40 || u_equation == 41 ||
@@ -176,10 +176,33 @@ bool isExpensiveEquation() {
            u_equation == 54 || u_equation == 56;
 }
 
+// Check if equation uses complex trig (cSin, cCos, cTan) which use exp internally
+bool isComplexTrigEquation() {
+    return u_equation == 23 || u_equation == 29 || u_equation == 32 ||
+           u_equation == 34 || u_equation == 36;
+}
+
+// Check if equation uses scalar trig (cos, sin) - moderately expensive
+bool isScalarTrigEquation() {
+    return u_equation == 19 || u_equation == 26 || u_equation == 27 ||
+           u_equation == 28;
+}
+
+// Get appropriate iteration limit based on equation complexity
+int getMaxIterForEquation() {
+    if (isExpBasedEquation() || isComplexTrigEquation()) {
+        return min(u_maxIterations, 32);
+    }
+    if (isScalarTrigEquation()) {
+        return min(u_maxIterations, 64);
+    }
+    return u_maxIterations;
+}
+
 // Compute "interestingness" of Julia set at point c
 float computeJuliaInterestingness(vec2 c) {
-    // Reduce iterations significantly for expensive equations
-    int maxIter = isExpensiveEquation() ? min(u_maxIterations, 32) : u_maxIterations;
+    // Reduce iterations for expensive equations to prevent GPU context loss
+    int maxIter = getMaxIterForEquation();
     int sampleIter = maxIter / 2;
 
     // First check if c is in/near the Mandelbrot set
