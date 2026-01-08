@@ -95,7 +95,7 @@ export function Toolbar() {
   const currentEquation = equations.find(e => e.id === equationId);
 
   return (
-    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-2 touch-manipulation">
+    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-2 touch-manipulation max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain toolbar-scroll">
       {/* Navigation and mode controls */}
       <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 shadow-lg border border-gray-700/50 max-w-[calc(100vw-2rem)]">
         <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
