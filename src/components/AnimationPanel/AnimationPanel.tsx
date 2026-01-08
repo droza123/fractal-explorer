@@ -14,13 +14,12 @@ export function AnimationPanel() {
     fractalType,
     setShowVideoExportDialog,
     animationPlayback,
-    savedAnimations,
-    setShowSavedAnimationsDialog,
     saveAnimation,
   } = useFractalStore();
 
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   const totalDuration = calculateTotalDuration(keyframes);
   const canAnimate = fractalType === 'mandelbrot' || fractalType === 'julia';
@@ -28,11 +27,9 @@ export function AnimationPanel() {
   const canExport = keyframes.length >= 2;
 
   // Dynamic accent color based on fractal type
-  const accentColor = fractalType === 'julia' ? 'purple' : 'blue';
-  const primaryButtonClass = accentColor === 'purple'
+  const primaryButtonClass = fractalType === 'julia'
     ? 'bg-purple-600 hover:bg-purple-500'
     : 'bg-blue-600 hover:bg-blue-500';
-  const accentBadgeClass = accentColor === 'purple' ? 'bg-purple-600' : 'bg-blue-600';
 
   const formatDuration = (ms: number): string => {
     const seconds = Math.floor(ms / 1000);
@@ -160,88 +157,87 @@ export function AnimationPanel() {
               </button>
             </div>
           ) : (
+            /* Secondary actions - icon only: Clear, Save, Export */
             <div className="flex gap-1.5">
-              {/* Save animation */}
-              <button
-                onClick={() => setShowSaveInput(true)}
-                disabled={!canExport || animationPlayback.isPlaying}
-                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                  canExport && !animationPlayback.isPlaying
-                    ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-                title={canExport ? 'Save animation to library' : 'Need at least 2 keyframes to save'}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                </svg>
-                Save
-              </button>
-
               {/* Clear keyframes */}
-              <button
-                onClick={() => {
-                  if (confirm('Clear all keyframes? This cannot be undone.')) {
-                    clearKeyframes();
-                  }
-                }}
-                disabled={!hasKeyframes || animationPlayback.isPlaying}
-                className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                  hasKeyframes && !animationPlayback.isPlaying
-                    ? 'bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white'
-                    : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                }`}
-                title={hasKeyframes ? 'Clear all keyframes from current animation' : 'No keyframes to clear'}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                Clear
-              </button>
+              {confirmingClear ? (
+                <>
+                  <button
+                    onClick={() => {
+                      clearKeyframes();
+                      setConfirmingClear(false);
+                    }}
+                    className="flex-1 flex items-center justify-center p-2 rounded bg-red-600 hover:bg-red-500 text-white transition-colors"
+                    title="Confirm clear all"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setConfirmingClear(false)}
+                    className="flex-1 flex items-center justify-center p-2 rounded bg-gray-600 hover:bg-gray-500 text-white transition-colors"
+                    title="Cancel"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setConfirmingClear(true)}
+                    disabled={!hasKeyframes || animationPlayback.isPlaying}
+                    className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
+                      hasKeyframes && !animationPlayback.isPlaying
+                        ? 'bg-gray-700 hover:bg-red-600 text-gray-300 hover:text-white'
+                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                    }`}
+                    title={hasKeyframes ? 'Clear all keyframes' : 'No keyframes to clear'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+
+                  {/* Save animation */}
+                  <button
+                    onClick={() => setShowSaveInput(true)}
+                    disabled={!canExport || animationPlayback.isPlaying}
+                    className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
+                      canExport && !animationPlayback.isPlaying
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                    }`}
+                    title={canExport ? 'Save animation to library' : 'Need at least 2 keyframes to save'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 3v4h-4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 14h10v5H7z" />
+                    </svg>
+                  </button>
+
+                  {/* Export Video */}
+                  <button
+                    onClick={() => setShowVideoExportDialog(true)}
+                    disabled={!canExport || animationPlayback.isPlaying}
+                    className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
+                      canExport && !animationPlayback.isPlaying
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                        : 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                    }`}
+                    title={canExport ? 'Export animation as video' : 'Need at least 2 keyframes to export'}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                </>
+              )}
             </div>
           )}
-
-          {/* Secondary actions */}
-          <div className="flex gap-1.5">
-            {/* Library (saved animations) */}
-            <button
-              onClick={() => setShowSavedAnimationsDialog(true)}
-              disabled={animationPlayback.isPlaying}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded transition-colors relative ${
-                !animationPlayback.isPlaying
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-              title="Browse saved animations"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
-              </svg>
-              Library
-              {savedAnimations.length > 0 && (
-                <span className={`absolute -top-1 -right-1 ${accentBadgeClass} text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center`}>
-                  {savedAnimations.length}
-                </span>
-              )}
-            </button>
-
-            {/* Export Video */}
-            <button
-              onClick={() => setShowVideoExportDialog(true)}
-              disabled={!canExport || animationPlayback.isPlaying}
-              className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs rounded transition-colors ${
-                canExport && !animationPlayback.isPlaying
-                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                  : 'bg-gray-800 text-gray-600 cursor-not-allowed'
-              }`}
-              title={canExport ? 'Export animation as video' : 'Need at least 2 keyframes to export'}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              Export
-            </button>
-          </div>
         </div>
       )}
     </div>

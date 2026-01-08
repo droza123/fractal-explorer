@@ -102,6 +102,8 @@ const DEFAULT_VIDEO_EXPORT_SETTINGS: VideoExportSettings = {
   codec: 'vp9',
   renderQuality: 'standard',
   renderPrecision: 'auto',
+  showZoomLevel: true,
+  zoomLevelPosition: 'top-right',
 };
 
 const DEFAULT_ANIMATION_PLAYBACK: AnimationPlaybackState = {
@@ -1132,7 +1134,7 @@ export const useFractalStore = create<FractalStore>()(
       id: crypto.randomUUID(),
       timestamp: calculateTotalDuration(state.keyframes),
       duration: 5000, // Default 5 second transition
-      easing: 'ease-in-out',
+      easing: 'linear',
       viewBounds: { ...state.viewBounds },
       fractalType: state.fractalType,
       juliaConstant: { ...state.juliaConstant },
@@ -1144,7 +1146,24 @@ export const useFractalStore = create<FractalStore>()(
       thumbnail,
     };
 
-    set({ keyframes: [...state.keyframes, newKeyframe] });
+    // If a keyframe is selected, insert after it; otherwise append to end
+    let newKeyframes: AnimationKeyframe[];
+    if (state.selectedKeyframeId) {
+      const selectedIndex = state.keyframes.findIndex(kf => kf.id === state.selectedKeyframeId);
+      if (selectedIndex !== -1) {
+        newKeyframes = [
+          ...state.keyframes.slice(0, selectedIndex + 1),
+          newKeyframe,
+          ...state.keyframes.slice(selectedIndex + 1),
+        ];
+      } else {
+        newKeyframes = [...state.keyframes, newKeyframe];
+      }
+    } else {
+      newKeyframes = [...state.keyframes, newKeyframe];
+    }
+
+    set({ keyframes: newKeyframes, selectedKeyframeId: newKeyframe.id });
   },
 
   removeKeyframe: (id) => {

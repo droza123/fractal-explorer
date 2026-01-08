@@ -10,6 +10,7 @@ import {
   CPUFrameRenderer,
   createTiledRenderOptionsFromState,
   needsHighPrecision,
+  calculateZoomLevel,
 } from '../../lib/video/frameRenderer';
 import { getStateAtTime, calculateTotalDuration } from '../../lib/animation/interpolation';
 import { downloadBlob, generateVideoFilename } from '../../lib/video/videoRecorder';
@@ -19,7 +20,7 @@ import {
   isWebCodecsSupported,
   type WebCodecsProgress,
 } from '../../lib/video/webCodecsEncoder';
-import type { VideoExportSettings, VideoRenderQuality, VideoRenderPrecision } from '../../types';
+import type { VideoExportSettings, VideoRenderQuality, VideoRenderPrecision, ZoomOverlayPosition, ViewBounds } from '../../types';
 
 const RESOLUTION_PRESETS: { value: VideoExportSettings['resolution']; label: string }[] = [
   { value: '720p', label: '720p (1280x720)' },
@@ -45,6 +46,92 @@ const PRECISION_OPTIONS: { value: VideoRenderPrecision; label: string; descripti
   { value: 'gpu', label: 'GPU', description: 'Fast GPU rendering (may pixelate at extreme zoom levels)' },
   { value: 'cpu', label: 'CPU', description: 'High-precision CPU rendering (slower, AA capped at 9x)' },
 ];
+
+const ZOOM_POSITION_OPTIONS: { value: ZoomOverlayPosition; label: string }[] = [
+  { value: 'top-left', label: 'Top Left' },
+  { value: 'top-right', label: 'Top Right' },
+  { value: 'bottom-left', label: 'Bottom Left' },
+  { value: 'bottom-right', label: 'Bottom Right' },
+];
+
+/**
+ * Format zoom level for display
+ */
+function formatZoomLevel(zoom: number): string {
+  if (zoom >= 1e12) {
+    return `${(zoom / 1e12).toFixed(1)}T×`;
+  } else if (zoom >= 1e9) {
+    return `${(zoom / 1e9).toFixed(1)}B×`;
+  } else if (zoom >= 1e6) {
+    return `${(zoom / 1e6).toFixed(1)}M×`;
+  } else if (zoom >= 1e3) {
+    return `${(zoom / 1e3).toFixed(1)}K×`;
+  } else {
+    return `${zoom.toFixed(1)}×`;
+  }
+}
+
+/**
+ * Draw zoom level overlay on a canvas
+ */
+function drawZoomOverlay(
+  canvas: HTMLCanvasElement,
+  viewBounds: ViewBounds,
+  position: ZoomOverlayPosition
+): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const zoom = calculateZoomLevel(viewBounds);
+  const text = `Zoom: ${formatZoomLevel(zoom)}`;
+
+  // Scale font size based on canvas resolution
+  const baseFontSize = Math.max(16, Math.min(canvas.width, canvas.height) / 40);
+  const padding = baseFontSize * 0.75;
+
+  ctx.font = `bold ${baseFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.textBaseline = 'top';
+
+  const metrics = ctx.measureText(text);
+  const textWidth = metrics.width;
+  const textHeight = baseFontSize;
+
+  // Calculate position
+  let x: number;
+  let y: number;
+
+  switch (position) {
+    case 'top-left':
+      x = padding;
+      y = padding;
+      break;
+    case 'top-right':
+      x = canvas.width - textWidth - padding * 2;
+      y = padding;
+      break;
+    case 'bottom-left':
+      x = padding;
+      y = canvas.height - textHeight - padding * 2;
+      break;
+    case 'bottom-right':
+    default:
+      x = canvas.width - textWidth - padding * 2;
+      y = canvas.height - textHeight - padding * 2;
+      break;
+  }
+
+  // Draw semi-transparent background
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+  ctx.beginPath();
+  ctx.roundRect(x - padding * 0.5, y - padding * 0.25, textWidth + padding, textHeight + padding * 0.5, baseFontSize * 0.25);
+  ctx.fill();
+
+  // Draw text with slight shadow for better readability
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillText(text, x + 1, y + 1);
+  ctx.fillStyle = 'white';
+  ctx.fillText(text, x, y);
+}
 
 export function VideoExportDialog() {
   const {
@@ -246,6 +333,11 @@ export function VideoExportDialog() {
             throw new Error('GPU renderer not initialized');
           }
           frameCanvas = tiledRenderer.renderFrame(tiledOptions);
+        }
+
+        // Draw zoom level overlay if enabled
+        if (videoExportSettings.showZoomLevel) {
+          drawZoomOverlay(frameCanvas, state.viewBounds, videoExportSettings.zoomLevelPosition);
         }
 
         // Add frame to encoder - encoding happens in real-time
@@ -596,6 +688,36 @@ export function VideoExportDialog() {
                   onChange={(e) => handleSettingChange({ quality: parseFloat(e.target.value) })}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-500"
                 />
+              </div>
+
+              {/* Zoom Level Overlay */}
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={videoExportSettings.showZoomLevel}
+                    onChange={(e) => handleSettingChange({ showZoomLevel: e.target.checked })}
+                    className="w-4 h-4 rounded bg-gray-700 border-gray-600 text-purple-600 focus:ring-purple-500 focus:ring-offset-gray-900"
+                  />
+                  <span className="text-sm text-gray-400">Show zoom level overlay</span>
+                </label>
+                {videoExportSettings.showZoomLevel && (
+                  <div className="mt-2 grid grid-cols-4 gap-1.5">
+                    {ZOOM_POSITION_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleSettingChange({ zoomLevelPosition: option.value })}
+                        className={`px-2 py-1.5 rounded text-xs transition-colors ${
+                          videoExportSettings.zoomLevelPosition === option.value
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Estimates */}

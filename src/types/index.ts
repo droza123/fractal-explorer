@@ -361,6 +361,8 @@ export type VideoRenderQuality = 'standard' | 'high' | 'ultra';
 // Precision mode for video export rendering
 export type VideoRenderPrecision = 'auto' | 'gpu' | 'cpu';
 
+export type ZoomOverlayPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
 export interface VideoExportSettings {
   format: 'webm' | 'mp4';
   fps: 30 | 60;
@@ -371,6 +373,8 @@ export interface VideoExportSettings {
   codec: 'vp9' | 'vp8' | 'h264';
   renderQuality: VideoRenderQuality;
   renderPrecision: VideoRenderPrecision;  // GPU (fast) vs CPU (high precision for deep zooms)
+  showZoomLevel: boolean;         // Show zoom level overlay on video
+  zoomLevelPosition: ZoomOverlayPosition; // Corner position for zoom overlay
 }
 
 export interface AnimationPlaybackState {

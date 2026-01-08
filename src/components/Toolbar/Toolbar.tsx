@@ -54,6 +54,8 @@ export function Toolbar() {
     setInfoCollapsed,
     // Saved items dialogs
     setShowSavedJuliasDialog,
+    savedAnimations,
+    setShowSavedAnimationsDialog,
     // Help dialog
     setShowHelpDialog,
     // URL Sharing
@@ -327,51 +329,18 @@ export function Toolbar() {
       {/* Equation selector - available for Julia and Heatmap modes */}
       {(fractalType === 'julia' || fractalType === 'heatmap') && (
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowEquationSelector(true)}
-              className="flex-1 px-3 py-2 rounded-md bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors text-left"
-              title="Select equation"
-            >
-              <span className="text-gray-400 text-xs">Eq #{equationId}:</span>{' '}
-              <span className="text-gray-200">{currentEquation?.label}</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Zoom slider - available for 2D modes */}
-      {fractalType !== 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-300 whitespace-nowrap">Zoom:</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="0.1"
-                value={zoomToSlider(juliaZoomFactor)}
-                onChange={handleZoomFactorChange}
-                onMouseUp={handleZoomFactorCommit}
-                onTouchEnd={handleZoomFactorCommit}
-                className={`flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer ${
-                  fractalType === 'julia' ? 'accent-purple-500' : fractalType === 'heatmap' ? 'accent-orange-500' : 'accent-blue-500'
-                }`}
-              />
-              <span className="text-sm text-gray-400 w-12 text-right">{juliaZoomFactor < 10 ? juliaZoomFactor.toFixed(1) : Math.round(juliaZoomFactor)}x</span>
               <button
-                onClick={() => setJuliaZoomFactor(1.0, true)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset zoom to 1.0x"
+                onClick={() => setShowEquationSelector(true)}
+                className="flex-1 px-3 py-2 rounded-md bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors text-left"
+                title="Select equation"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
+                <span className="text-gray-400 text-xs">Eq #{equationId}:</span>{' '}
+                <span className="text-gray-200">{currentEquation?.label}</span>
               </button>
             </div>
-
-            {/* Julia-specific: Complex constant display with reset */}
+            {/* Julia constant display */}
             {fractalType === 'julia' && (() => {
               const isCustomC = juliaConstant.real !== -0.7 || juliaConstant.imag !== 0.27015;
               return (
@@ -398,29 +367,86 @@ export function Toolbar() {
         </div>
       )}
 
+      {/* Zoom slider - available for 2D modes */}
+      {fractalType !== 'mandelbulb' && (
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-300 whitespace-nowrap">Zoom:</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="0.1"
+              value={zoomToSlider(juliaZoomFactor)}
+              onChange={handleZoomFactorChange}
+              onMouseUp={handleZoomFactorCommit}
+              onTouchEnd={handleZoomFactorCommit}
+              className={`flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer ${
+                fractalType === 'julia' ? 'accent-purple-500' : fractalType === 'heatmap' ? 'accent-orange-500' : 'accent-blue-500'
+              }`}
+            />
+            <span className="text-sm text-gray-400 w-12 text-right">{juliaZoomFactor < 10 ? juliaZoomFactor.toFixed(1) : Math.round(juliaZoomFactor)}x</span>
+            <button
+              onClick={() => setJuliaZoomFactor(1.0, true)}
+              className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+              title="Reset zoom to 1.0x"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Animation Panel - for 2D modes (above Quality) */}
       {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
         <AnimationPanel />
       )}
 
-      {/* Saved Julias button - only in Julia mode */}
-      {fractalType === 'julia' && savedJulias.length > 0 && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
-          <button
-            onClick={() => setShowSavedJuliasDialog(true)}
-            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
-            title="Manage saved Julias"
-          >
-            <div className="flex items-center gap-2 text-sm text-gray-300">
-              <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
-              </svg>
-              Saved Julias
-            </div>
-            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
-              {savedJulias.length}
-            </span>
-          </button>
+      {/* Saved Items - Julias and Animations */}
+      {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50 p-1.5">
+          <div className="flex gap-1.5">
+            {/* Saved Julias - only in Julia mode */}
+            {fractalType === 'julia' && (
+              <button
+                onClick={() => setShowSavedJuliasDialog(true)}
+                className={`flex-1 flex items-center justify-between p-1.5 hover:bg-gray-800/50 rounded transition-colors ${
+                  savedJulias.length === 0 ? 'opacity-60' : ''
+                }`}
+                title="Manage saved Julias"
+              >
+                <div className="flex items-center gap-1.5 text-xs text-gray-300">
+                  <svg className="w-3.5 h-3.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  Julias
+                </div>
+                <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded-full">
+                  {savedJulias.length}
+                </span>
+              </button>
+            )}
+            {/* Saved Animations */}
+            <button
+              onClick={() => setShowSavedAnimationsDialog(true)}
+              className={`flex-1 flex items-center justify-between p-1.5 hover:bg-gray-800/50 rounded transition-colors ${
+                savedAnimations.length === 0 ? 'opacity-60' : ''
+              }`}
+              title="Manage saved animations"
+            >
+              <div className="flex items-center gap-1.5 text-xs text-gray-300">
+                <svg className={`w-3.5 h-3.5 ${fractalType === 'julia' ? 'text-purple-400' : 'text-blue-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                </svg>
+                Animations
+              </div>
+              <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded-full">
+                {savedAnimations.length}
+              </span>
+            </button>
+          </div>
         </div>
       )}
 
