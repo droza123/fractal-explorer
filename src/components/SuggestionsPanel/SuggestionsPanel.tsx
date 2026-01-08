@@ -53,21 +53,30 @@ export function SuggestionsPanel() {
 
   if (!showSuggestionsPanel) {
     return (
-      <button
-        onClick={() => setShowSuggestionsPanel(true)}
-        className="absolute top-4 right-4 bg-gray-800/90 hover:bg-gray-700 text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm transition-colors z-10"
-        title="Show AI Suggestions"
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-        AI Suggestions
-      </button>
+      <div className="absolute top-2 right-2 lg:top-4 lg:right-4 z-10">
+        <button
+          onClick={() => setShowSuggestionsPanel(true)}
+          className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50 hover:bg-gray-800 transition-colors flex items-center gap-1.5 lg:gap-2"
+          title="Expand AI Suggestions"
+        >
+          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+          </svg>
+          <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          {suggestions.length > 0 && (
+            <span className="text-xs text-gray-300 hidden lg:inline">
+              {suggestions.length} suggestions
+            </span>
+          )}
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="absolute top-4 right-4 w-72 max-h-[calc(100vh-200px)] bg-gray-800/95 backdrop-blur-sm rounded-lg shadow-xl overflow-hidden z-10">
+    <div className="absolute top-2 right-2 lg:top-4 lg:right-4 w-64 lg:w-72 max-h-[calc(100vh-200px)] bg-gray-800/95 backdrop-blur-sm rounded-lg shadow-xl overflow-hidden z-10">
       {/* Header */}
       <div className="flex items-center justify-between p-3 border-b border-gray-700">
         <div className="flex items-center gap-2">
@@ -90,10 +99,10 @@ export function SuggestionsPanel() {
           <button
             onClick={() => setShowSuggestionsPanel(false)}
             className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors"
-            title="Close panel"
+            title="Collapse panel"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
           </button>
         </div>

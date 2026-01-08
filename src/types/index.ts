@@ -150,6 +150,8 @@ export interface FractalState {
   exportSettings: ExportSettings;
   exportAbortController: AbortController | null;
   // UI Collapsed States
+  toolbarCollapsed: boolean;
+  toolbarWidth: number;  // User-adjustable toolbar width in pixels
   qualityCollapsed: boolean;
   savedJuliasCollapsed: boolean;
   infoCollapsed: boolean;
@@ -261,6 +263,8 @@ export interface FractalActions {
   cancelExport: () => void;
   setExportProgress: (progress: ExportProgress | null) => void;
   // UI Collapsed State actions
+  setToolbarCollapsed: (collapsed: boolean) => void;
+  setToolbarWidth: (width: number) => void;
   setQualityCollapsed: (collapsed: boolean) => void;
   setSavedJuliasCollapsed: (collapsed: boolean) => void;
   setInfoCollapsed: (collapsed: boolean) => void;

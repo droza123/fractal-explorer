@@ -12,6 +12,16 @@ import { ViewBoundsAnimator } from '../lib/animation/viewBoundsAnimator';
 // Global zoom animator instance (not stored in state to avoid serialization issues)
 let zoomAnimator: ViewBoundsAnimator | null = null;
 
+// Calculate responsive default toolbar width based on screen size
+// Linear scale based on: 1432px screen → 390px toolbar, 2040px screen → 460px toolbar
+// Formula: toolbarWidth = 0.115 * screenWidth + 225, clamped to 275-500px
+function getResponsiveToolbarWidth(): number {
+  if (typeof window === 'undefined') return 300; // SSR fallback
+  const screenWidth = window.innerWidth;
+  const calculatedWidth = Math.round(0.115 * screenWidth + 225);
+  return Math.max(275, Math.min(500, calculatedWidth));
+}
+
 const DEFAULT_CAMERA_3D: Camera3D = {
   distance: 2.5,
   rotationX: 0.3,      // Pitch: slight elevation angle
@@ -222,6 +232,8 @@ export const useFractalStore = create<FractalStore>()(
   exportSettings: loadExportSettings(),
   exportAbortController: null,
   // UI Collapsed States (default to expanded)
+  toolbarCollapsed: false,
+  toolbarWidth: getResponsiveToolbarWidth(),  // Responsive default based on screen size
   qualityCollapsed: false,
   savedJuliasCollapsed: false,
   infoCollapsed: false,
@@ -929,6 +941,8 @@ export const useFractalStore = create<FractalStore>()(
   },
 
   // UI Collapsed State actions
+  setToolbarCollapsed: (collapsed) => set({ toolbarCollapsed: collapsed }),
+  setToolbarWidth: (width) => set({ toolbarWidth: Math.max(275, Math.min(500, width)) }),  // Clamp between 275-500px
   setQualityCollapsed: (collapsed) => set({ qualityCollapsed: collapsed }),
   setSavedJuliasCollapsed: (collapsed) => set({ savedJuliasCollapsed: collapsed }),
   setInfoCollapsed: (collapsed) => set({ infoCollapsed: collapsed }),
@@ -1146,6 +1160,8 @@ export const useFractalStore = create<FractalStore>()(
         renderQuality: state.renderQuality,
         lightingParams: state.lightingParams,
         // UI collapsed states
+        toolbarCollapsed: state.toolbarCollapsed,
+        toolbarWidth: state.toolbarWidth,
         qualityCollapsed: state.qualityCollapsed,
         savedJuliasCollapsed: state.savedJuliasCollapsed,
         infoCollapsed: state.infoCollapsed,

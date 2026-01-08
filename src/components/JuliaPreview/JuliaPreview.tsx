@@ -135,7 +135,7 @@ export function JuliaPreview() {
   }, [heatmapPreviewConstant, setThumbnailCanvas]);
 
   return (
-    <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
+    <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50 w-full">
       <div className="flex items-center justify-between mb-2">
         <div className="text-xs text-gray-300 font-medium">Julia Preview</div>
         <div className="text-xs text-gray-500">Ctrl to freeze</div>

@@ -239,8 +239,8 @@ export function HeatmapExplorer() {
     const dpr = window.devicePixelRatio || 1;
 
     // Check if mouse is near any suggestion marker (for hover effect)
-    // Only check when not dragging and suggestions panel is visible
-    if (showSuggestionsPanel && suggestions.length > 0 && !isDragging) {
+    // Works even when panel is collapsed, as long as suggestions exist
+    if (suggestions.length > 0 && !isDragging) {
       const cssX = coords.x / dpr;
       const cssY = coords.y / dpr;
       const hoverRadius = 22; // Half of the touch target size (44px)
@@ -601,8 +601,8 @@ export function HeatmapExplorer() {
       />
       {selection && <SelectionOverlay selection={selection} />}
 
-      {/* AI Suggestion markers */}
-      {showSuggestionsPanel && suggestions.map((suggestion) => (
+      {/* AI Suggestion markers - visible even when panel is collapsed */}
+      {suggestions.length > 0 && suggestions.map((suggestion) => (
         <SuggestionMarker
           key={suggestion.id}
           suggestion={suggestion}

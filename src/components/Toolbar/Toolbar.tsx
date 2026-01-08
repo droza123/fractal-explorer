@@ -1,3 +1,4 @@
+import { useCallback, useRef, useEffect } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { equations } from '../../lib/equations';
 import { JuliaPreview } from '../JuliaPreview/JuliaPreview';
@@ -43,6 +44,10 @@ export function Toolbar() {
     isHighPrecisionActive,
     setShowExportDialog,
     // UI collapsed states (persisted)
+    toolbarCollapsed,
+    setToolbarCollapsed,
+    toolbarWidth,
+    setToolbarWidth,
     qualityCollapsed,
     setQualityCollapsed,
     infoCollapsed,
@@ -94,126 +99,221 @@ export function Toolbar() {
     setJuliaZoomFactor(juliaZoomFactor, true); // Commit to history on release
   };
 
+  // Resize handle logic
+  const isResizing = useRef(false);
+  const startX = useRef(0);
+  const startWidth = useRef(0);
+
+  const handleResizeStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    isResizing.current = true;
+    startX.current = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    startWidth.current = toolbarWidth;
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+  }, [toolbarWidth]);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent | TouchEvent) => {
+      if (!isResizing.current) return;
+      const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+      const delta = clientX - startX.current;
+      setToolbarWidth(startWidth.current + delta);
+    };
+
+    const handleMouseUp = () => {
+      if (isResizing.current) {
+        isResizing.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleMouseMove);
+    document.addEventListener('touchend', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleMouseMove);
+      document.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [setToolbarWidth]);
+
   const currentEquation = equations.find(e => e.id === equationId);
 
+  // Collapsed toolbar - show expand button and Julia Preview in heatmap mode
+  if (toolbarCollapsed) {
+    return (
+      <div className="absolute top-2 left-2 lg:top-4 lg:left-4 touch-manipulation flex flex-col gap-1.5 lg:gap-2">
+        <button
+          onClick={() => setToolbarCollapsed(false)}
+          className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50 hover:bg-gray-800 transition-colors"
+          title="Show toolbar"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        {/* Show Julia Preview even when collapsed in heatmap mode - compact size */}
+        {fractalType === 'heatmap' && (
+          <div className="w-44 lg:w-64 [&>div]:min-w-0">
+            <JuliaPreview />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="absolute top-2 left-2 sm:top-4 sm:left-4 flex flex-col gap-2 touch-manipulation max-h-[calc(100vh-1rem)] sm:max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain toolbar-scroll">
+    <div
+      className="absolute top-2 left-2 lg:top-4 lg:left-4"
+      style={{ width: `${toolbarWidth}px` }}
+    >
+      {/* Resize handle on right edge */}
+      <div
+        className="absolute top-0 right-0 w-2 h-full cursor-ew-resize hover:bg-blue-500/50 active:bg-blue-500/70 transition-colors z-20 rounded-r"
+        onMouseDown={handleResizeStart}
+        onTouchStart={handleResizeStart}
+        title="Drag to resize toolbar"
+      />
+      {/* Scrollable toolbar content */}
+      <div className="flex flex-col gap-1.5 lg:gap-2 touch-manipulation max-h-[calc(100vh-1rem)] lg:max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain toolbar-scroll">
       {/* Navigation and mode controls */}
-      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 sm:p-3 shadow-lg border border-gray-700/50 max-w-[calc(100vw-2rem)]">
-        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-          <button
-            onClick={() => goBack()}
-            disabled={!canGoBack}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[36px] min-w-[36px]"
-            title="Go back (previous view)"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-
-          <button
-            onClick={() => goForward()}
-            disabled={!canGoForward}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors min-h-[36px] min-w-[36px]"
-            title="Go forward (next view)"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-
-          <div className="w-px h-6 bg-gray-600 mx-1" />
-
-          {/* Mode buttons */}
-          <div className="flex gap-0.5 sm:gap-1">
+      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-1.5 lg:p-2 shadow-lg border border-gray-700/50">
+        {/* Row 1: Navigation and utility buttons */}
+        <div className="flex items-center justify-between gap-1 mb-1.5">
+          <div className="flex items-center gap-1">
+            {/* Collapse toolbar button */}
             <button
-              onClick={switchToMandelbrot}
-              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
-                fractalType === 'mandelbrot'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-              title="Mandelbrot set"
+              onClick={() => setToolbarCollapsed(true)}
+              className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
+              title="Hide toolbar"
             >
-              Mandel
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
             </button>
+
+            <div className="w-px h-5 bg-gray-600" />
+
             <button
-              onClick={() => switchToJulia(juliaConstant)}
-              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
-                fractalType === 'julia'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-              title="Julia set"
+              onClick={() => goBack()}
+              disabled={!canGoBack}
+              className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Go back (previous view)"
             >
-              Julia
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
+
             <button
-              onClick={switchToHeatmap}
-              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
-                fractalType === 'heatmap'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-              title="Heat map explorer"
+              onClick={() => goForward()}
+              disabled={!canGoForward}
+              className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              title="Go forward (next view)"
             >
-              Heatmap
-            </button>
-            <button
-              onClick={switchToMandelbulb}
-              className={`px-1.5 sm:px-2 py-1.5 rounded-md text-xs font-medium transition-colors min-h-[36px] ${
-                fractalType === 'mandelbulb'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
-              title="3D Mandelbulb"
-            >
-              3D
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </button>
           </div>
 
-          <div className="w-px h-6 bg-gray-600 mx-1" />
+          <div className="flex items-center gap-1">
+            {/* Color palette button */}
+            <button
+              onClick={() => setShowColorSelector(true)}
+              className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
+              title="Color palette"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+            </button>
 
-          {/* Color palette button */}
+            {/* Export image button */}
+            <button
+              onClick={() => setShowExportDialog(true)}
+              className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
+              title="Export high-resolution image"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+
+            {/* Help button */}
+            <button
+              onClick={() => setShowHelpDialog(true)}
+              className="p-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors"
+              title="Help"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Row 2: Mode buttons - full width */}
+        <div className="flex gap-1">
           <button
-            onClick={() => setShowColorSelector(true)}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors min-h-[36px] min-w-[36px]"
-            title="Color palette"
+            onClick={switchToMandelbrot}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              fractalType === 'mandelbrot'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+            title="Mandelbrot set"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-            </svg>
+            Mandel
           </button>
-
-          {/* Export image button */}
           <button
-            onClick={() => setShowExportDialog(true)}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors min-h-[36px] min-w-[36px]"
-            title="Export high-resolution image"
+            onClick={() => switchToJulia(juliaConstant)}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              fractalType === 'julia'
+                ? 'bg-purple-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+            title="Julia set"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            Julia
           </button>
-
-          {/* Help button */}
           <button
-            onClick={() => setShowHelpDialog(true)}
-            className="p-2 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors min-h-[36px] min-w-[36px]"
-            title="Help"
+            onClick={switchToHeatmap}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              fractalType === 'heatmap'
+                ? 'bg-orange-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+            title="Heat map explorer"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            Heat
+          </button>
+          <button
+            onClick={switchToMandelbulb}
+            className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-colors ${
+              fractalType === 'mandelbulb'
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+            title="3D Mandelbulb"
+          >
+            3D
           </button>
         </div>
       </div>
 
+      {/* Julia Preview - in heatmap mode, matches other toolbar sections */}
+      {fractalType === 'heatmap' && <JuliaPreview />}
+
       {/* Equation selector - available for Julia and Heatmap modes */}
       {(fractalType === 'julia' || fractalType === 'heatmap') && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowEquationSelector(true)}
@@ -229,7 +329,7 @@ export function Toolbar() {
 
       {/* Zoom slider - available for 2D modes */}
       {fractalType !== 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-300 whitespace-nowrap">Zoom:</label>
@@ -284,9 +384,6 @@ export function Toolbar() {
           </div>
         </div>
       )}
-
-      {/* Julia preview - only in heatmap mode, placed above Quality */}
-      {fractalType === 'heatmap' && <JuliaPreview />}
 
       {/* Animation Panel - for 2D modes (above Quality) */}
       {(fractalType === 'mandelbrot' || fractalType === 'julia') && (
@@ -478,7 +575,7 @@ export function Toolbar() {
 
       {/* 3D Mandelbulb controls */}
       {fractalType === 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
           <div className="flex flex-col gap-2">
             {/* Power slider */}
             <div className="flex items-center gap-2">
@@ -568,7 +665,7 @@ export function Toolbar() {
 
       {/* Lighting controls - only in 3D mode */}
       {fractalType === 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-3 shadow-lg border border-gray-700/50">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-gray-300 font-medium">Lighting</span>
             <button
@@ -935,6 +1032,7 @@ export function Toolbar() {
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {/* Save indicator - fixed position floating notification */}
