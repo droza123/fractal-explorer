@@ -65,12 +65,12 @@ export function HelpDialog() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-4 sm:px-6 py-3 border-b border-gray-700 flex gap-1 sm:gap-2 overflow-x-auto">
+        <div className="px-4 sm:px-6 py-3 border-b border-gray-700 flex items-center gap-2">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 flex items-center justify-center h-9 ${
                 activeTab === tab.id
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
