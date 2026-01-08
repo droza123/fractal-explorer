@@ -9,6 +9,13 @@ export interface SavedPoint {
   thumbnail: string | null; // Base64 encoded image
   createdAt: Date;
   updatedAt: Date;
+  // Extended state (optional for backwards compatibility)
+  viewBounds?: { minReal: number; maxReal: number; minImag: number; maxImag: number };
+  maxIterations?: number;
+  juliaZoomFactor?: number;
+  currentPaletteId?: string;
+  colorTemperature?: number;
+  paletteColors?: { r: number; g: number; b: number }[]; // Fallback if palette ID not found
 }
 
 export interface CustomPalette {

@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { FractalStore, ViewBounds, FractalType, Complex, HistoryEntry, SavedJulia, Camera3D, MandelbulbParams, LightingParams, RenderQuality, RenderQuality2D, SuggestedPoint, ExportSettings, ExportProgress, AnimationKeyframe, Animation, AnimationPlaybackState, VideoExportSettings, VideoExportProgress } from '../types';
 import { addPoint, deletePoint, updatePoint, getAllPoints, getAllCustomPalettes, addCustomPalette as dbAddCustomPalette, updateCustomPalette as dbUpdateCustomPalette, deleteCustomPalette as dbDeleteCustomPalette } from '../db/database';
 import { getAllAnimations, addAnimation as dbAddAnimation, updateAnimation as dbUpdateAnimation, deleteAnimation as dbDeleteAnimation } from '../db/animations';
-import type { RGB } from '../lib/colors';
+import { PRESET_PALETTES, type RGB } from '../lib/colors';
 import { getSuggestions } from '../lib/suggestions';
 import { calculateTotalDuration } from '../lib/animation/interpolation';
 import { generateKeyframeThumbnail } from '../lib/animation/thumbnailGenerator';
@@ -24,7 +24,7 @@ function getResponsiveToolbarWidth(): number {
 }
 
 const DEFAULT_CAMERA_3D: Camera3D = {
-  distance: 2.5,
+  distance: 4.0,
   rotationX: 0.3,      // Pitch: slight elevation angle
   rotationY: 0.4,      // Yaw: slight horizontal rotation for better initial view
   fov: 60,
@@ -603,7 +603,18 @@ export const useFractalStore = create<FractalStore>()(
   setCursorPosition: (pos) => set({ cursorPosition: pos }),
 
   saveCurrentJulia: async (name?: string) => {
-    const { juliaConstant, equationId, savedJulias, thumbnailCanvas } = get();
+    const {
+      juliaConstant,
+      equationId,
+      savedJulias,
+      thumbnailCanvas,
+      viewBounds,
+      maxIterations,
+      juliaZoomFactor,
+      currentPaletteId,
+      colorTemperature,
+      customPalettes,
+    } = get();
 
     // Generate thumbnail from canvas if available
     let thumbnail: string | null = null;
@@ -620,15 +631,33 @@ export const useFractalStore = create<FractalStore>()(
       }
     }
 
+    // Get the current palette colors for fallback
+    let paletteColors: { r: number; g: number; b: number }[] | undefined;
+    const presetPalette = PRESET_PALETTES.find(p => p.id === currentPaletteId);
+    if (presetPalette) {
+      paletteColors = presetPalette.colors;
+    } else {
+      const customPalette = customPalettes.find(p => p.id === currentPaletteId);
+      if (customPalette) {
+        paletteColors = customPalette.colors;
+      }
+    }
+
     const pointName = name || `Point ${savedJulias.length + 1}`;
 
-    // Save to IndexedDB
+    // Save to IndexedDB with full state
     const id = await addPoint({
       equationId,
       real: juliaConstant.real,
       imag: juliaConstant.imag,
       name: pointName,
       thumbnail,
+      viewBounds: { ...viewBounds },
+      maxIterations,
+      juliaZoomFactor,
+      currentPaletteId,
+      colorTemperature,
+      paletteColors,
     });
 
     // Update local state and show save indicator
@@ -638,6 +667,12 @@ export const useFractalStore = create<FractalStore>()(
       equationId,
       name: pointName,
       thumbnail,
+      viewBounds: { ...viewBounds },
+      maxIterations,
+      juliaZoomFactor,
+      currentPaletteId,
+      colorTemperature,
+      paletteColors,
     };
     set({ savedJulias: [...savedJulias, newSaved], showSaveIndicator: true });
 
@@ -654,15 +689,54 @@ export const useFractalStore = create<FractalStore>()(
   },
 
   loadSavedJulia: (id) => {
-    const { savedJulias, juliaZoomFactor, pushHistory } = get();
+    const { savedJulias, juliaZoomFactor, customPalettes, currentPaletteId: userCurrentPalette, pushHistory } = get();
     const saved = savedJulias.find((s) => s.id === id);
     if (saved) {
-      const bounds = getJuliaBounds(juliaZoomFactor);
+      // Use saved view bounds if available, otherwise calculate from zoom factor
+      const bounds = saved.viewBounds || getJuliaBounds(saved.juliaZoomFactor ?? juliaZoomFactor);
+
+      // Determine which palette to use
+      let paletteId = saved.currentPaletteId || userCurrentPalette;
+
+      // Check if the saved palette exists
+      if (saved.currentPaletteId) {
+        const presetExists = PRESET_PALETTES.some(p => p.id === saved.currentPaletteId);
+        const customExists = customPalettes.some(p => p.id === saved.currentPaletteId);
+
+        if (!presetExists && !customExists && saved.paletteColors) {
+          // Palette doesn't exist but we have fallback colors - create temporary custom palette
+          const tempPaletteId = `saved-julia-${id}`;
+          const existingTemp = customPalettes.find(p => p.id === tempPaletteId);
+          if (!existingTemp) {
+            // Add the palette colors as a temporary custom palette
+            set({
+              customPalettes: [...customPalettes, {
+                id: tempPaletteId,
+                name: `${saved.name} Palette`,
+                colors: saved.paletteColors,
+              }],
+            });
+          }
+          paletteId = tempPaletteId;
+        } else if (!presetExists && !customExists) {
+          // Palette doesn't exist and no fallback - use user's current palette
+          paletteId = userCurrentPalette;
+        }
+      }
+
       pushHistory({
         fractalType: 'julia',
         juliaConstant: saved.constant,
         equationId: saved.equationId,
         viewBounds: bounds,
+        juliaZoomFactor: saved.juliaZoomFactor ?? juliaZoomFactor,
+        maxIterations: saved.maxIterations,
+      });
+
+      // Set color state separately (not part of history)
+      set({
+        currentPaletteId: paletteId,
+        colorTemperature: saved.colorTemperature ?? 0,
       });
     }
   },
@@ -700,6 +774,13 @@ export const useFractalStore = create<FractalStore>()(
       thumbnail: p.thumbnail,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
+      // Extended state (may be undefined for old saves)
+      viewBounds: p.viewBounds,
+      maxIterations: p.maxIterations,
+      juliaZoomFactor: p.juliaZoomFactor,
+      currentPaletteId: p.currentPaletteId,
+      colorTemperature: p.colorTemperature,
+      paletteColors: p.paletteColors,
     }));
     set({ savedJulias });
   },
@@ -1002,6 +1083,7 @@ export const useFractalStore = create<FractalStore>()(
     const urlState = decodeHashToState(hash);
 
     if (urlState) {
+      const { customPalettes, currentPaletteId: userCurrentPalette } = get();
       const updates: Partial<typeof urlState> = {};
 
       if (urlState.fractalType) updates.fractalType = urlState.fractalType;
@@ -1010,7 +1092,14 @@ export const useFractalStore = create<FractalStore>()(
       if (urlState.juliaConstant) updates.juliaConstant = urlState.juliaConstant;
       if (urlState.juliaZoomFactor) updates.juliaZoomFactor = urlState.juliaZoomFactor;
       if (urlState.maxIterations) updates.maxIterations = urlState.maxIterations;
-      if (urlState.currentPaletteId) updates.currentPaletteId = urlState.currentPaletteId;
+
+      // Handle palette - check if it exists, fall back to user's current palette if not
+      if (urlState.currentPaletteId) {
+        const presetExists = PRESET_PALETTES.some(p => p.id === urlState.currentPaletteId);
+        const customExists = customPalettes.some(p => p.id === urlState.currentPaletteId);
+        updates.currentPaletteId = (presetExists || customExists) ? urlState.currentPaletteId : userCurrentPalette;
+      }
+
       if (urlState.colorTemperature !== undefined) updates.colorTemperature = urlState.colorTemperature;
       if (urlState.camera3D) updates.camera3D = urlState.camera3D;
       if (urlState.mandelbulbParams) updates.mandelbulbParams = urlState.mandelbulbParams;

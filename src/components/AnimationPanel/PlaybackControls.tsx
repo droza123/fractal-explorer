@@ -14,7 +14,14 @@ export function PlaybackControls() {
     animationPlayback,
     setAnimationPlayback,
     applyAnimationState,
+    fractalType,
   } = useFractalStore();
+
+  // Dynamic accent color based on fractal type
+  const accentColor = fractalType === 'julia' ? 'purple' : 'blue';
+  const accentBgClass = accentColor === 'purple' ? 'bg-purple-600 hover:bg-purple-500' : 'bg-blue-600 hover:bg-blue-500';
+  const accentBgActiveClass = accentColor === 'purple' ? 'bg-purple-600' : 'bg-blue-600';
+  const accentSliderClass = accentColor === 'purple' ? 'accent-purple-500' : 'accent-blue-500';
 
   const engineRef = useRef<PlaybackEngine | null>(null);
   const lastApplyTimeRef = useRef<number>(0);
@@ -97,8 +104,8 @@ export function PlaybackControls() {
   return (
     <div className="flex flex-col gap-2 bg-gray-800/30 rounded p-2">
       {/* Progress bar / timeline scrubber */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-gray-400 font-mono w-12 text-right">
+      <div className="flex items-center gap-2 w-full">
+        <span className="text-[10px] text-gray-400 font-mono w-10 text-right flex-shrink-0">
           {formatTime(animationPlayback.currentTime)}
         </span>
         <input
@@ -109,9 +116,9 @@ export function PlaybackControls() {
           value={animationPlayback.currentTime}
           onChange={handleSeek}
           disabled={!canPlay}
-          className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 disabled:opacity-50"
+          className={`flex-1 min-w-0 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer ${accentSliderClass} disabled:opacity-50`}
         />
-        <span className="text-[10px] text-gray-400 font-mono w-12">
+        <span className="text-[10px] text-gray-400 font-mono w-10 flex-shrink-0">
           {formatTime(totalDuration)}
         </span>
       </div>
@@ -137,7 +144,7 @@ export function PlaybackControls() {
             disabled={!canPlay}
             className={`p-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
               animationPlayback.isPlaying
-                ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                ? `${accentBgClass} text-white`
                 : 'hover:bg-gray-700 text-gray-400 hover:text-white'
             }`}
             title={animationPlayback.isPlaying ? 'Pause' : 'Play'}
@@ -157,7 +164,7 @@ export function PlaybackControls() {
 
         {/* Preview speed selector */}
         <div
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 flex-shrink-0"
           title="Preview playback speed. Only affects real-time preview in browser. Exported videos always play at normal (1x) speed."
         >
           <span className="text-[10px] text-gray-500 cursor-help">Preview:</span>
@@ -167,7 +174,7 @@ export function PlaybackControls() {
               onClick={() => handleSpeedChange(speed)}
               className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
                 animationPlayback.playbackSpeed === speed
-                  ? 'bg-blue-600 text-white'
+                  ? `${accentBgActiveClass} text-white`
                   : 'bg-gray-700 text-gray-400 hover:bg-gray-600'
               }`}
               title={`Preview at ${speed}x speed`}

@@ -80,6 +80,13 @@ export interface SavedJulia {
   thumbnail: string | null;
   createdAt?: Date;
   updatedAt?: Date;
+  // Extended state (optional for backwards compatibility)
+  viewBounds?: ViewBounds;
+  maxIterations?: number;
+  juliaZoomFactor?: number;
+  currentPaletteId?: string;
+  colorTemperature?: number;
+  paletteColors?: { r: number; g: number; b: number }[]; // Fallback if palette ID not found
 }
 
 export interface CursorPosition {

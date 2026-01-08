@@ -403,19 +403,19 @@ export function Toolbar() {
         <AnimationPanel />
       )}
 
-      {/* Saved Julia sets button - only in Julia mode */}
+      {/* Saved Julias button - only in Julia mode */}
       {fractalType === 'julia' && savedJulias.length > 0 && (
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
           <button
             onClick={() => setShowSavedJuliasDialog(true)}
             className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
-            title="Manage saved Julia sets"
+            title="Manage saved Julias"
           >
             <div className="flex items-center gap-2 text-sm text-gray-300">
               <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
               </svg>
-              Saved Julia Sets
+              Saved Julias
             </div>
             <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">
               {savedJulias.length}
@@ -628,7 +628,7 @@ export function Toolbar() {
               />
               <span className="text-xs text-gray-400 w-8 text-right">{camera3D.distance.toFixed(1)}</span>
               <button
-                onClick={() => setCamera3D({ distance: 2.5 })}
+                onClick={() => setCamera3D({ distance: 4.0 })}
                 className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
                 title="Reset distance to default"
               >
