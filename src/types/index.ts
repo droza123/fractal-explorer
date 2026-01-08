@@ -170,6 +170,8 @@ export interface FractalState {
   // Saved items dialogs
   showSavedAnimationsDialog: boolean;
   showSavedJuliasDialog: boolean;
+  // Help dialog
+  showHelpDialog: boolean;
 }
 
 // Image Export
@@ -299,6 +301,8 @@ export interface FractalActions {
   // Saved items dialogs
   setShowSavedAnimationsDialog: (show: boolean) => void;
   setShowSavedJuliasDialog: (show: boolean) => void;
+  // Help dialog
+  setShowHelpDialog: (show: boolean) => void;
 }
 
 export type FractalStore = FractalState & FractalActions;

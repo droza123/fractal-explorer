@@ -9,6 +9,7 @@ import { ExportDialog } from './components/ExportDialog';
 import { VideoExportDialog } from './components/VideoExportDialog';
 import { SavedAnimationsDialog } from './components/SavedAnimationsDialog';
 import { SavedJuliasDialog } from './components/SavedJuliasDialog';
+import { HelpDialog } from './components/HelpDialog';
 import { useFractalStore } from './store/fractalStore';
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
       <VideoExportDialog />
       <SavedAnimationsDialog />
       <SavedJuliasDialog />
+      <HelpDialog />
     </div>
   );
 }

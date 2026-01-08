@@ -242,6 +242,8 @@ export const useFractalStore = create<FractalStore>()(
   // Saved items dialogs
   showSavedAnimationsDialog: false,
   showSavedJuliasDialog: false,
+  // Help dialog
+  showHelpDialog: false,
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
 
@@ -937,6 +939,8 @@ export const useFractalStore = create<FractalStore>()(
   // Saved items dialogs
   setShowSavedAnimationsDialog: (show) => set({ showSavedAnimationsDialog: show }),
   setShowSavedJuliasDialog: (show) => set({ showSavedJuliasDialog: show }),
+  // Help dialog
+  setShowHelpDialog: (show) => set({ showHelpDialog: show }),
 
   addKeyframe: () => {
     const state = get();
