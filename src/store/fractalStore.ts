@@ -8,6 +8,7 @@ import { getSuggestions } from '../lib/suggestions';
 import { calculateTotalDuration } from '../lib/animation/interpolation';
 import { generateKeyframeThumbnail } from '../lib/animation/thumbnailGenerator';
 import { ViewBoundsAnimator } from '../lib/animation/viewBoundsAnimator';
+import { encodeStateToHash, decodeHashToState, copyToClipboard, type ShareableState } from '../lib/urlState';
 
 // Global zoom animator instance (not stored in state to avoid serialization issues)
 let zoomAnimator: ViewBoundsAnimator | null = null;
@@ -256,6 +257,9 @@ export const useFractalStore = create<FractalStore>()(
   showSavedJuliasDialog: false,
   // Help dialog
   showHelpDialog: false,
+  // URL Sharing
+  showShareToast: false,
+  shareToastMessage: '',
 
   setViewBounds: (bounds) => set({ viewBounds: bounds }),
 
@@ -955,6 +959,74 @@ export const useFractalStore = create<FractalStore>()(
   setShowSavedJuliasDialog: (show) => set({ showSavedJuliasDialog: show }),
   // Help dialog
   setShowHelpDialog: (show) => set({ showHelpDialog: show }),
+
+  // URL Sharing
+  setShowShareToast: (show, message = '') => set({
+    showShareToast: show,
+    shareToastMessage: message
+  }),
+
+  shareCurrentView: async () => {
+    const state = get();
+    const shareableState: ShareableState = {
+      version: 1,
+      fractalType: state.fractalType,
+      viewBounds: state.viewBounds,
+      equationId: state.equationId,
+      juliaConstant: state.juliaConstant,
+      juliaZoomFactor: state.juliaZoomFactor,
+      maxIterations: state.maxIterations,
+      currentPaletteId: state.currentPaletteId,
+      colorTemperature: state.colorTemperature,
+      camera3D: state.fractalType === 'mandelbulb' ? state.camera3D : undefined,
+      mandelbulbParams: state.fractalType === 'mandelbulb' ? state.mandelbulbParams : undefined,
+    };
+
+    const hash = encodeStateToHash(shareableState);
+    const url = `${window.location.origin}${window.location.pathname}#${hash}`;
+    const success = await copyToClipboard(url);
+
+    set({
+      showShareToast: true,
+      shareToastMessage: success ? 'Link copied to clipboard!' : 'Failed to copy link'
+    });
+
+    // Auto-hide after 2 seconds
+    setTimeout(() => {
+      set({ showShareToast: false });
+    }, 2000);
+  },
+
+  loadFromUrlHash: () => {
+    const hash = window.location.hash;
+    const urlState = decodeHashToState(hash);
+
+    if (urlState) {
+      const updates: Partial<typeof urlState> = {};
+
+      if (urlState.fractalType) updates.fractalType = urlState.fractalType;
+      if (urlState.viewBounds) updates.viewBounds = urlState.viewBounds;
+      if (urlState.equationId) updates.equationId = urlState.equationId;
+      if (urlState.juliaConstant) updates.juliaConstant = urlState.juliaConstant;
+      if (urlState.juliaZoomFactor) updates.juliaZoomFactor = urlState.juliaZoomFactor;
+      if (urlState.maxIterations) updates.maxIterations = urlState.maxIterations;
+      if (urlState.currentPaletteId) updates.currentPaletteId = urlState.currentPaletteId;
+      if (urlState.colorTemperature !== undefined) updates.colorTemperature = urlState.colorTemperature;
+      if (urlState.camera3D) updates.camera3D = urlState.camera3D;
+      if (urlState.mandelbulbParams) updates.mandelbulbParams = urlState.mandelbulbParams;
+
+      // Apply the state from URL
+      set(updates as Partial<FractalStore>);
+
+      // Push to history so user can navigate back
+      const { pushHistory } = get();
+      pushHistory();
+
+      // Clear the hash to avoid re-loading on manual refresh
+      // Use replaceState to not add to browser history
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  },
 
   addKeyframe: () => {
     const state = get();

@@ -10,6 +10,7 @@ import { VideoExportDialog } from './components/VideoExportDialog';
 import { SavedAnimationsDialog } from './components/SavedAnimationsDialog';
 import { SavedJuliasDialog } from './components/SavedJuliasDialog';
 import { HelpDialog } from './components/HelpDialog';
+import { ShareToast } from './components/ShareToast';
 import { useFractalStore } from './store/fractalStore';
 
 function App() {
@@ -17,6 +18,12 @@ function App() {
   const loadSavedJuliasFromDb = useFractalStore((state) => state.loadSavedJuliasFromDb);
   const loadCustomPalettesFromDb = useFractalStore((state) => state.loadCustomPalettesFromDb);
   const loadAnimationsFromDb = useFractalStore((state) => state.loadAnimationsFromDb);
+  const loadFromUrlHash = useFractalStore((state) => state.loadFromUrlHash);
+
+  // Load state from URL hash on initial mount (before other effects)
+  useEffect(() => {
+    loadFromUrlHash();
+  }, [loadFromUrlHash]);
 
   // Load saved julias, custom palettes, and animations from database on startup
   useEffect(() => {
@@ -47,6 +54,7 @@ function App() {
       <SavedAnimationsDialog />
       <SavedJuliasDialog />
       <HelpDialog />
+      <ShareToast />
     </div>
   );
 }

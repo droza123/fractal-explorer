@@ -27,6 +27,7 @@ export default defineConfig({
         lang: 'en',
         categories: ['education', 'graphics', 'utilities'],
         prefer_related_applications: false,
+        handle_links: 'preferred',
         icons: [
           {
             src: 'pwa-64x64.png',

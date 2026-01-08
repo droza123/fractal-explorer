@@ -174,6 +174,9 @@ export interface FractalState {
   showSavedJuliasDialog: boolean;
   // Help dialog
   showHelpDialog: boolean;
+  // URL Sharing
+  showShareToast: boolean;
+  shareToastMessage: string;
 }
 
 // Image Export
@@ -307,6 +310,10 @@ export interface FractalActions {
   setShowSavedJuliasDialog: (show: boolean) => void;
   // Help dialog
   setShowHelpDialog: (show: boolean) => void;
+  // URL Sharing
+  setShowShareToast: (show: boolean, message?: string) => void;
+  shareCurrentView: () => Promise<void>;
+  loadFromUrlHash: () => void;
 }
 
 export type FractalStore = FractalState & FractalActions;
