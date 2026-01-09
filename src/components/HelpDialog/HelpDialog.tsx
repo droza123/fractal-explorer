@@ -211,8 +211,6 @@ function WhatsNewContent() {
         <ul className="space-y-2">
           <ChangeItem>10 different 3D fractal equations with selector UI</ChangeItem>
           <ChangeItem>New fractals: Octahedron IFS and Icosahedron IFS</ChangeItem>
-          <ChangeItem>Fixed 3D camera drag direction</ChangeItem>
-          <ChangeItem>Fixed PWA manifest loading in dev mode</ChangeItem>
         </ul>
       </section>
 
