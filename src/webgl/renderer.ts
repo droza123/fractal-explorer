@@ -29,6 +29,11 @@ interface MandelbulbUniforms {
   maxIterations: WebGLUniformLocation | null;
   power: WebGLUniformLocation | null;
   bailout: WebGLUniformLocation | null;
+  // Equation selection
+  equation: WebGLUniformLocation | null;
+  scale: WebGLUniformLocation | null;
+  minRadius: WebGLUniformLocation | null;
+  // Camera
   cameraPos: WebGLUniformLocation | null;
   cameraRotation: WebGLUniformLocation | null;
   fov: WebGLUniformLocation | null;
@@ -357,6 +362,11 @@ export class WebGLRenderer {
       maxIterations: this.gl.getUniformLocation(program, 'u_maxIterations'),
       power: this.gl.getUniformLocation(program, 'u_power'),
       bailout: this.gl.getUniformLocation(program, 'u_bailout'),
+      // Equation selection
+      equation: this.gl.getUniformLocation(program, 'u_equation'),
+      scale: this.gl.getUniformLocation(program, 'u_scale'),
+      minRadius: this.gl.getUniformLocation(program, 'u_minRadius'),
+      // Camera
       cameraPos: this.gl.getUniformLocation(program, 'u_cameraPos'),
       cameraRotation: this.gl.getUniformLocation(program, 'u_cameraRotation'),
       fov: this.gl.getUniformLocation(program, 'u_fov'),
@@ -606,7 +616,8 @@ export class WebGLRenderer {
     lighting: LightingParams,
     quality: RenderQuality,
     maxIterations: number,
-    colorOffset: number = 0
+    colorOffset: number = 0,
+    equation3dId: number = 1
   ): void {
     if (!this.gl || !this.mandelbulbProgram) return;
 
@@ -623,9 +634,14 @@ export class WebGLRenderer {
     this.gl.uniform2f(uniforms.resolution, width, height);
     this.gl.uniform1i(uniforms.maxIterations, maxIterations);
 
-    // Mandelbulb parameters
+    // Equation selection
+    this.gl.uniform1i(uniforms.equation, equation3dId);
+
+    // Fractal parameters
     this.gl.uniform1f(uniforms.power, params.power);
     this.gl.uniform1f(uniforms.bailout, params.bailout);
+    this.gl.uniform1f(uniforms.scale, params.scale ?? 2.0);
+    this.gl.uniform1f(uniforms.minRadius, params.minRadius ?? 0.5);
 
     // Camera position (spherical to cartesian)
     // rotationX = pitch (elevation angle), rotationY = yaw (horizontal angle)
@@ -648,7 +664,6 @@ export class WebGLRenderer {
     const forward = [-cosPitch * sinYaw, -sinPitch, -cosPitch * cosYaw];
 
     // Right vector is always horizontal (perpendicular to Y axis)
-    // It's the derivative of position with respect to yaw, normalized
     const right = [cosYaw, 0, -sinYaw];
 
     // Up vector completes the orthonormal basis

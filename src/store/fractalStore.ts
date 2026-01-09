@@ -9,6 +9,7 @@ import { calculateTotalDuration } from '../lib/animation/interpolation';
 import { generateKeyframeThumbnail } from '../lib/animation/thumbnailGenerator';
 import { ViewBoundsAnimator } from '../lib/animation/viewBoundsAnimator';
 import { encodeStateToHash, decodeHashToState, copyToClipboard, type ShareableState } from '../lib/urlState';
+import { getEquation3D } from '../lib/equations3d';
 
 // Global zoom animator instance (not stored in state to avoid serialization issues)
 let zoomAnimator: ViewBoundsAnimator | null = null;
@@ -33,6 +34,8 @@ const DEFAULT_CAMERA_3D: Camera3D = {
 const DEFAULT_MANDELBULB_PARAMS: MandelbulbParams = {
   power: 8,
   bailout: 2.0,
+  scale: 2.0,       // For Mandelbox, Kaleidoscopic IFS
+  minRadius: 0.5,   // For Mandelbox sphere fold
 };
 
 const DEFAULT_LIGHTING_PARAMS: LightingParams = {
@@ -48,14 +51,15 @@ const DEFAULT_RENDER_QUALITY: RenderQuality = {
   maxSteps: 256,
   shadowSteps: 32,
   aoSamples: 5,
-  detailLevel: 0.8,
+  detailLevel: 0.3,  // Higher detail default for solid Mandelbox rendering
 };
 
+// Detail levels shifted: old "High" (0.3) is now "Low", allows finer detail
 const QUALITY_PRESETS: Record<'low' | 'medium' | 'high' | 'ultra', RenderQuality> = {
-  low: { maxSteps: 64, shadowSteps: 0, aoSamples: 0, detailLevel: 1.0 },
-  medium: { maxSteps: 256, shadowSteps: 32, aoSamples: 5, detailLevel: 0.8 },
-  high: { maxSteps: 512, shadowSteps: 64, aoSamples: 8, detailLevel: 0.6 },
-  ultra: { maxSteps: 1024, shadowSteps: 128, aoSamples: 12, detailLevel: 0.4 },
+  low: { maxSteps: 64, shadowSteps: 0, aoSamples: 0, detailLevel: 0.4 },
+  medium: { maxSteps: 256, shadowSteps: 32, aoSamples: 5, detailLevel: 0.3 },
+  high: { maxSteps: 512, shadowSteps: 64, aoSamples: 8, detailLevel: 0.2 },
+  ultra: { maxSteps: 1024, shadowSteps: 128, aoSamples: 12, detailLevel: 0.1 },
 };
 
 const DEFAULT_RENDER_QUALITY_2D: RenderQuality2D = {
@@ -221,6 +225,8 @@ export const useFractalStore = create<FractalStore>()(
   mandelbulbParams: { ...DEFAULT_MANDELBULB_PARAMS },
   lightingParams: { ...DEFAULT_LIGHTING_PARAMS },
   renderQuality: { ...DEFAULT_RENDER_QUALITY },
+  equation3dId: 1, // Default to Mandelbulb
+  showEquation3DSelector: false,
   renderQuality2D: { ...DEFAULT_RENDER_QUALITY_2D },
   isHighPrecisionActive: false,
   // AI Suggestions
@@ -913,6 +919,42 @@ export const useFractalStore = create<FractalStore>()(
     set({ renderQuality: { ...QUALITY_PRESETS[preset] } });
   },
 
+  setEquation3DId: (id) => {
+    const equation = getEquation3D(id);
+    if (equation) {
+      const { mandelbulbParams, camera3D } = get();
+      const updates: Partial<{
+        equation3dId: number;
+        mandelbulbParams: typeof mandelbulbParams;
+        camera3D: typeof camera3D;
+      }> = {
+        equation3dId: id,
+      };
+      // Update default power/scale if the equation has different defaults
+      if (equation.defaultPower !== undefined) {
+        updates.mandelbulbParams = { ...mandelbulbParams, power: equation.defaultPower };
+      }
+      if (equation.defaultScale !== undefined) {
+        updates.mandelbulbParams = { ...(updates.mandelbulbParams || mandelbulbParams), scale: equation.defaultScale };
+      }
+      // Update camera defaults if specified
+      if (equation.defaultDistance !== undefined || equation.defaultFov !== undefined) {
+        updates.camera3D = { ...camera3D };
+        if (equation.defaultDistance !== undefined) {
+          updates.camera3D.distance = equation.defaultDistance;
+        }
+        if (equation.defaultFov !== undefined) {
+          updates.camera3D.fov = equation.defaultFov;
+        }
+      }
+      set(updates);
+    } else {
+      set({ equation3dId: id });
+    }
+  },
+
+  setShowEquation3DSelector: (show) => set({ showEquation3DSelector: show }),
+
   setRenderQuality2D: (quality) => {
     const { renderQuality2D } = get();
     set({ renderQuality2D: { ...renderQuality2D, ...quality } });
@@ -1063,6 +1105,7 @@ export const useFractalStore = create<FractalStore>()(
       colorTemperature: state.colorTemperature,
       camera3D: state.fractalType === 'mandelbulb' ? state.camera3D : undefined,
       mandelbulbParams: state.fractalType === 'mandelbulb' ? state.mandelbulbParams : undefined,
+      equation3dId: state.fractalType === 'mandelbulb' ? state.equation3dId : undefined,
     };
 
     const hash = encodeStateToHash(shareableState);
@@ -1105,6 +1148,7 @@ export const useFractalStore = create<FractalStore>()(
       if (urlState.colorTemperature !== undefined) updates.colorTemperature = urlState.colorTemperature;
       if (urlState.camera3D) updates.camera3D = urlState.camera3D;
       if (urlState.mandelbulbParams) updates.mandelbulbParams = urlState.mandelbulbParams;
+      if (urlState.equation3dId) updates.equation3dId = urlState.equation3dId;
 
       // Apply the state from URL
       set(updates as Partial<FractalStore>);

@@ -4,6 +4,7 @@ import { HeatmapExplorer } from './components/HeatmapExplorer';
 import { Mandelbulb3D } from './components/Mandelbulb3D';
 import { Toolbar } from './components/Toolbar';
 import { EquationSelector } from './components/EquationSelector';
+import { Equation3DSelector } from './components/Equation3DSelector';
 import { ColorPaletteSelector } from './components/ColorPaletteSelector';
 import { ExportDialog } from './components/ExportDialog';
 import { VideoExportDialog } from './components/VideoExportDialog';
@@ -48,6 +49,7 @@ function App() {
       {renderFractalView()}
       <Toolbar />
       <EquationSelector />
+      <Equation3DSelector />
       <ColorPaletteSelector />
       <ExportDialog />
       <VideoExportDialog />

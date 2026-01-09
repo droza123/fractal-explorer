@@ -152,6 +152,11 @@ export default defineConfig({
           },
         ],
       },
+      // Enable manifest in dev mode to avoid 404 errors
+      devOptions: {
+        enabled: true,
+        type: 'module',
+      },
     }),
   ],
   server: {

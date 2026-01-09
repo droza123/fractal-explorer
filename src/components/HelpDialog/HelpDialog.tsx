@@ -138,10 +138,11 @@ function HowToUseContent() {
 
       {/* 3D Controls */}
       <section>
-        <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide mb-3">3D Mandelbulb Controls</h3>
+        <h3 className="text-sm font-semibold text-orange-400 uppercase tracking-wide mb-3">3D Fractal Controls</h3>
         <div className="space-y-2">
           <ControlRow action="Rotate view" control="Click and drag" />
-          <ControlRow action="Zoom" control="Scroll wheel" />
+          <ControlRow action="Zoom in/out" control="Scroll wheel or pinch" />
+          <ControlRow action="Change fractal" control="Use equation selector" />
         </div>
       </section>
     </div>
@@ -154,37 +155,43 @@ function FeaturesContent() {
       <FeatureSection
         title="Mandelbrot Set"
         color="blue"
-        description="The classic Mandelbrot fractal. Explore infinite complexity by zooming into the boundary. Click on any point to see its corresponding Julia set."
+        description="The classic Mandelbrot fractal. Explore infinite complexity by zooming into the boundary. Double-click on any point to see its corresponding Julia set."
       />
 
       <FeatureSection
         title="Julia Sets"
         color="purple"
-        description="Each point in the Mandelbrot set corresponds to a unique Julia set. Use the equation selector to explore 57 different fractal formulas, from simple polynomials to exotic trigonometric variants."
+        description="Each point in the Mandelbrot set corresponds to a unique Julia set. Use the equation selector to explore 57 different fractal formulas, from simple polynomials to exotic trigonometric variants. Save your favorite Julia sets with thumbnails for later."
       />
 
       <FeatureSection
         title="Heatmap Explorer"
         color="yellow"
-        description="Visualize the 'interestingness' of Julia sets across the parameter space. Bright areas indicate visually complex Julia sets. Move your cursor to preview different Julia sets in real-time."
+        description="Visualize the 'interestingness' of Julia sets across the parameter space. Bright areas indicate visually complex Julia sets. Move your cursor to preview different Julia sets in real-time, hold Ctrl to freeze the preview."
       />
 
       <FeatureSection
-        title="3D Mandelbulb"
+        title="3D Fractals"
         color="orange"
-        description="Explore the three-dimensional cousin of the Mandelbrot set. Adjust the power parameter, lighting, and camera to discover stunning 3D fractal landscapes."
+        description="Explore 10 different 3D fractal types: Mandelbulb, Mandelbox, Quaternion Julia, Burning Ship 3D, Tricorn 3D, Menger Sponge, Sierpinski Tetrahedron, Kaleidoscopic IFS, Octahedron IFS, and Icosahedron IFS. Each has unique parameters for power, scale, and camera settings. Adjust lighting and quality for stunning renders."
       />
 
       <FeatureSection
         title="Animation"
         color="green"
-        description="Create smooth zoom animations by adding keyframes. You can even change equations or iteration levels between keyframes and watch the fractal morph between them. Export your journey as a video to share."
+        description="Create smooth zoom animations by adding keyframes. Change equations or iteration levels between keyframes and watch the fractal morph. Save animations for later and export as video to share your journey."
       />
 
       <FeatureSection
         title="High Precision Mode"
         color="cyan"
-        description="When you zoom deep enough, the app automatically switches to high-precision CPU rendering, allowing you to explore details far beyond normal floating-point limits."
+        description="When you zoom deep enough, the app automatically switches to high-precision CPU rendering with parallel web workers, allowing you to explore details far beyond normal floating-point limits."
+      />
+
+      <FeatureSection
+        title="Sharing & Export"
+        color="pink"
+        description="Share your current view with a URL link that captures all settings. Export high-resolution images of any fractal. Choose from multiple color palettes with temperature adjustment."
       />
     </div>
   );
@@ -201,15 +208,25 @@ function AboutContent() {
           </svg>
         </div>
         <h3 className="text-xl font-bold text-gray-100">Fractal Voyager</h3>
-        <p className="text-sm text-gray-400 mt-1">Version 1.0</p>
+        <p className="text-sm text-gray-400 mt-1">Version 1.1</p>
       </section>
 
       {/* Description */}
       <section>
         <p className="text-sm text-gray-300 text-center leading-relaxed">
-          An interactive fractal explorer featuring Mandelbrot and Julia sets,
-          heatmap visualization, 3D Mandelbulb rendering, and animation tools.
-          Built with WebGL for GPU-accelerated rendering.
+          A comprehensive fractal explorer featuring Mandelbrot and Julia sets with 57 equations,
+          heatmap visualization, 10 different 3D fractals with ray-marched rendering,
+          animation tools, and high-precision deep zoom capabilities.
+        </p>
+      </section>
+
+      {/* Tech Stack */}
+      <section className="bg-gray-800/50 rounded-lg p-4">
+        <h4 className="text-sm font-semibold text-gray-200 mb-2">Technology</h4>
+        <p className="text-sm text-gray-400">
+          Built with React, TypeScript, and WebGL 2.0 for GPU-accelerated rendering.
+          Features parallel CPU rendering with Web Workers for high-precision deep zooms,
+          IndexedDB for persistent storage, and PWA support for offline use.
         </p>
       </section>
 
@@ -234,7 +251,7 @@ function AboutContent() {
 
       {/* Credits */}
       <section className="text-center text-xs text-gray-500 pt-2">
-        <p>Made with React, TypeScript, and WebGL</p>
+        <p>Created with Claude Code</p>
       </section>
     </div>
   );
@@ -257,6 +274,7 @@ function FeatureSection({ title, color, description }: { title: string; color: s
     orange: 'bg-orange-500/20 text-orange-400',
     green: 'bg-green-500/20 text-green-400',
     cyan: 'bg-cyan-500/20 text-cyan-400',
+    pink: 'bg-pink-500/20 text-pink-400',
   };
 
   return (

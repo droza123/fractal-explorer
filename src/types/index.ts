@@ -28,11 +28,16 @@ export interface Camera3D {
   fov: number;           // Field of view in degrees
 }
 
-// Mandelbulb parameters
-export interface MandelbulbParams {
-  power: number;         // Power parameter (classic is 8)
+// 3D Fractal parameters (renamed from MandelbulbParams for generality)
+export interface Fractal3DParams {
+  power: number;         // Power parameter (classic is 8 for Mandelbulb)
   bailout: number;       // Escape radius
+  scale: number;         // Scale factor for Mandelbox, Kaleidoscopic (default: 2.0)
+  minRadius: number;     // Min radius for Mandelbox sphere fold (default: 0.5)
 }
+
+// Legacy alias for backwards compatibility
+export type MandelbulbParams = Fractal3DParams;
 
 // Lighting parameters for 3D rendering
 export interface LightingParams {
@@ -141,6 +146,8 @@ export interface FractalState {
   mandelbulbParams: MandelbulbParams;
   lightingParams: LightingParams;
   renderQuality: RenderQuality;
+  equation3dId: number;
+  showEquation3DSelector: boolean;
   // 2D quality settings
   renderQuality2D: RenderQuality2D;
   // High precision rendering active (using CPU Canvas 2D)
@@ -257,6 +264,8 @@ export interface FractalActions {
   resetLighting: () => void;
   setRenderQuality: (quality: Partial<RenderQuality>) => void;
   setQualityPreset: (preset: 'low' | 'medium' | 'high' | 'ultra') => void;
+  setEquation3DId: (id: number) => void;
+  setShowEquation3DSelector: (show: boolean) => void;
   // 2D quality actions
   setRenderQuality2D: (quality: Partial<RenderQuality2D>) => void;
   setHighPrecisionActive: (active: boolean) => void;

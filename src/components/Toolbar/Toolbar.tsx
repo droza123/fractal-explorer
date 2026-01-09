@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { equations } from '../../lib/equations';
+import { getEquation3D } from '../../lib/equations3d';
 import { JuliaPreview } from '../JuliaPreview/JuliaPreview';
 import { AnimationPanel } from '../AnimationPanel';
 
@@ -28,6 +29,8 @@ export function Toolbar() {
     lightingParams,
     renderQuality,
     renderQuality2D,
+    equation3dId,
+    setShowEquation3DSelector,
     setMandelbulbPower,
     setFov,
     setCamera3D,
@@ -612,17 +615,45 @@ export function Toolbar() {
         </div>
       )}
 
+      {/* 3D Fractal Equation Selector */}
+      {fractalType === 'mandelbulb' && (() => {
+        const currentEquation3d = getEquation3D(equation3dId);
+        return (
+          <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
+            <div className="flex flex-col gap-2">
+              {/* Equation selector button */}
+              <button
+                onClick={() => setShowEquation3DSelector(true)}
+                className="w-full px-3 py-2 rounded-md bg-gray-800 hover:bg-gray-700 text-sm font-medium transition-colors text-left"
+                title="Select 3D fractal equation"
+              >
+                <span className="text-gray-400 text-xs">Eq #{equation3dId}:</span>{' '}
+                <span className="text-gray-200">{currentEquation3d?.label}</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 3D Mandelbulb controls */}
-      {fractalType === 'mandelbulb' && (
+      {fractalType === 'mandelbulb' && (() => {
+        const currentEquation3d = getEquation3D(equation3dId);
+        return (
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
           <div className="flex flex-col gap-2">
-            {/* Power slider */}
+            {/* Power slider - only for equations with hasPower */}
+            {currentEquation3d?.hasPower && (() => {
+              // Use different range for low-power fractals (Burning Ship, Tricorn)
+              const isLowPowerFractal = (currentEquation3d.defaultPower ?? 8) <= 2;
+              const minPower = isLowPowerFractal ? 1.5 : 2;
+              const maxPower = isLowPowerFractal ? 6 : 16;
+              return (
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-12 cursor-help" title="Mandelbulb exponent: Controls the fractal's shape. Power 8 is the classic Mandelbulb">Power:</label>
+              <label className="text-xs text-gray-400 w-12 cursor-help" title="Power exponent: Controls the fractal's shape. Higher values create more complex structures">Power:</label>
               <input
                 type="range"
-                min="2"
-                max="16"
+                min={minPower}
+                max={maxPower}
                 step="0.1"
                 value={mandelbulbParams.power}
                 onChange={(e) => setMandelbulbPower(parseFloat(e.target.value))}
@@ -630,15 +661,53 @@ export function Toolbar() {
               />
               <span className="text-xs text-gray-400 w-8 text-right">{mandelbulbParams.power.toFixed(1)}</span>
               <button
-                onClick={() => setMandelbulbPower(8)}
+                onClick={() => setMandelbulbPower(currentEquation3d.defaultPower ?? 8)}
                 className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset power to 8"
+                title={`Reset power to ${currentEquation3d.defaultPower ?? 8}`}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
               </button>
             </div>
+              );
+            })()}
+
+            {/* Scale slider - only for equations with hasScale (Mandelbox, Kaleidoscopic, IFS) */}
+            {currentEquation3d?.hasScale && (() => {
+              // IFS fractals work best in positive scale range, Mandelbox works with -3 to 3
+              const isPositiveScaleOnly = equation3dId === 8 || equation3dId === 9 || equation3dId === 10;
+              const minScale = isPositiveScaleOnly ? 1.0 : -3.0;
+              const maxScale = 3.0;
+              return (
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400 w-12 cursor-help" title="Scale factor: Controls the self-similarity ratio of the fractal">Scale:</label>
+              <input
+                type="range"
+                min={minScale}
+                max={maxScale}
+                step="0.05"
+                value={mandelbulbParams.scale ?? 2.0}
+                onChange={(e) => {
+                  useFractalStore.setState({ mandelbulbParams: { ...mandelbulbParams, scale: parseFloat(e.target.value) } });
+                }}
+                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+              />
+              <span className="text-xs text-gray-400 w-8 text-right">{(mandelbulbParams.scale ?? 2.0).toFixed(2)}</span>
+              <button
+                onClick={() => {
+                  useFractalStore.setState({ mandelbulbParams: { ...mandelbulbParams, scale: currentEquation3d.defaultScale ?? 2.0 } });
+                }}
+                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                title={`Reset scale to ${currentEquation3d.defaultScale ?? 2.0}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+              );
+            })()}
 
             {/* Distance slider */}
             <div className="flex items-center gap-2">
@@ -700,7 +769,8 @@ export function Toolbar() {
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Lighting controls - only in 3D mode */}
       {fractalType === 'mandelbulb' && (
@@ -974,14 +1044,14 @@ export function Toolbar() {
                 <label className="text-xs text-gray-400 w-16 cursor-help" title="Surface detail: Controls ray step size. 'High' uses smaller steps for finer detail but slower rendering">Detail:</label>
                 <input
                   type="range"
-                  min="0.3"
-                  max="1.0"
-                  step="0.05"
+                  min="0.1"
+                  max="0.5"
+                  step="0.02"
                   value={renderQuality.detailLevel}
                   onChange={(e) => setRenderQuality({ detailLevel: parseFloat(e.target.value) })}
                   className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
-                <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.detailLevel < 0.5 ? 'High' : renderQuality.detailLevel < 0.8 ? 'Med' : 'Low'}</span>
+                <span className="text-xs text-gray-500 w-10 text-right">{renderQuality.detailLevel <= 0.15 ? 'Ultra' : renderQuality.detailLevel <= 0.25 ? 'High' : renderQuality.detailLevel <= 0.35 ? 'Med' : 'Low'}</span>
               </div>
             </div>
           )}

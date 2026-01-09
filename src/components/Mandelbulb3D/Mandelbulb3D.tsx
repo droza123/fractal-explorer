@@ -16,6 +16,7 @@ export function Mandelbulb3D() {
     mandelbulbParams,
     lightingParams,
     renderQuality,
+    equation3dId,
     rotateCamera3D,
     zoomCamera3D,
     currentPaletteId,
@@ -120,15 +121,15 @@ export function Mandelbulb3D() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Render the Mandelbulb
+  // Render the 3D fractal
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !rendererRef.current || contextLost) return;
 
     rendererRef.current.setFractalType('mandelbulb');
     rendererRef.current.setPalette(shaderPalette);
-    rendererRef.current.render3D(camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, 0);
-  }, [camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, shaderPalette, contextLost, renderKey, canvasSize]);
+    rendererRef.current.render3D(camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, 0, equation3dId);
+  }, [camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, shaderPalette, contextLost, renderKey, canvasSize, equation3dId]);
 
   const getCanvasCoords = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;

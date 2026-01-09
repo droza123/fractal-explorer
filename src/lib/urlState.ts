@@ -34,6 +34,7 @@ export interface ShareableState {
   // 3D specific (optional)
   camera3D?: Camera3D;
   mandelbulbParams?: MandelbulbParams;
+  equation3dId?: number;
 }
 
 /**
@@ -75,7 +76,13 @@ export function encodeStateToHash(state: ShareableState): string {
   if (state.fractalType === 'mandelbulb' && state.camera3D && state.mandelbulbParams) {
     const cam = `${state.camera3D.distance}_${state.camera3D.rotationX}_${state.camera3D.rotationY}_${state.camera3D.fov}`;
     params.set('3d', cam);
-    params.set('3p', `${state.mandelbulbParams.power}_${state.mandelbulbParams.bailout}`);
+    // Include scale and minRadius for full state sharing
+    const p = state.mandelbulbParams;
+    params.set('3p', `${p.power}_${p.bailout}_${p.scale ?? 2.0}_${p.minRadius ?? 0.5}`);
+    // 3D equation ID
+    if (state.equation3dId !== undefined) {
+      params.set('3e', state.equation3dId.toString());
+    }
   }
 
   return params.toString();
@@ -185,15 +192,26 @@ export function decodeHashToState(hash: string): Partial<ShareableState> | null 
       }
     }
 
-    // 3D params
+    // 3D params (support both old 2-param and new 4-param formats)
     const params3d = params.get('3p');
     if (params3d) {
       const parts = params3d.split('_').map(parseFloat);
-      if (parts.length === 2 && parts.every(n => !isNaN(n) && isFinite(n))) {
+      if (parts.length >= 2 && parts.slice(0, 2).every(n => !isNaN(n) && isFinite(n))) {
         state.mandelbulbParams = {
           power: parts[0],
-          bailout: parts[1]
+          bailout: parts[1],
+          scale: parts[2] ?? 2.0,      // Default for backwards compatibility
+          minRadius: parts[3] ?? 0.5   // Default for backwards compatibility
         };
+      }
+    }
+
+    // 3D equation ID
+    const eq3d = params.get('3e');
+    if (eq3d) {
+      const parsed = parseInt(eq3d, 10);
+      if (!isNaN(parsed) && parsed > 0 && parsed <= 8) {
+        state.equation3dId = parsed;
       }
     }
 
