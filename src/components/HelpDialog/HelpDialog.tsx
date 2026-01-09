@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 
-type TabId = 'how-to-use' | 'features' | 'about';
+type TabId = 'how-to-use' | 'features' | 'whats-new' | 'about';
 
 export function HelpDialog() {
   const { showHelpDialog, setShowHelpDialog } = useFractalStore();
@@ -29,6 +29,7 @@ export function HelpDialog() {
   const tabs: { id: TabId; label: string }[] = [
     { id: 'how-to-use', label: 'How to Use' },
     { id: 'features', label: 'Features' },
+    { id: 'whats-new', label: "What's New" },
     { id: 'about', label: 'About' },
   ];
 
@@ -85,6 +86,7 @@ export function HelpDialog() {
         <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
           {activeTab === 'how-to-use' && <HowToUseContent />}
           {activeTab === 'features' && <FeaturesContent />}
+          {activeTab === 'whats-new' && <WhatsNewContent />}
           {activeTab === 'about' && <AboutContent />}
         </div>
 
@@ -197,6 +199,84 @@ function FeaturesContent() {
   );
 }
 
+function WhatsNewContent() {
+  return (
+    <div className="space-y-6">
+      {/* Version 1.2 */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-semibold rounded">v1.2</span>
+          <span className="text-xs text-gray-500">Latest</span>
+        </div>
+        <ul className="space-y-2">
+          <ChangeItem>10 different 3D fractal equations with selector UI</ChangeItem>
+          <ChangeItem>New fractals: Octahedron IFS and Icosahedron IFS</ChangeItem>
+          <ChangeItem>Fixed 3D camera drag direction</ChangeItem>
+          <ChangeItem>Fixed PWA manifest loading in dev mode</ChangeItem>
+        </ul>
+      </section>
+
+      {/* Version 1.1 */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded">v1.1</span>
+        </div>
+        <ul className="space-y-2">
+          <ChangeItem>URL sharing for fractal views</ChangeItem>
+          <ChangeItem>Animation keyframe editor with easing</ChangeItem>
+          <ChangeItem>Video export up to 4K at 60fps</ChangeItem>
+          <ChangeItem>Resizable toolbar for mobile/desktop</ChangeItem>
+          <ChangeItem>Save/load Julia sets with full state</ChangeItem>
+        </ul>
+      </section>
+
+      {/* Version 1.0 */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 text-xs font-semibold rounded">v1.0</span>
+        </div>
+        <ul className="space-y-2">
+          <ChangeItem>Mandelbrot and Julia set exploration</ChangeItem>
+          <ChangeItem>57 fractal equations</ChangeItem>
+          <ChangeItem>Heatmap visualization mode</ChangeItem>
+          <ChangeItem>3D Mandelbulb with ray marching</ChangeItem>
+          <ChangeItem>High-precision CPU rendering for deep zooms</ChangeItem>
+          <ChangeItem>18 color palettes with custom palette editor</ChangeItem>
+        </ul>
+      </section>
+
+      {/* Link to full changelog */}
+      <section className="pt-2 border-t border-gray-700">
+        <a
+          href="https://github.com/droza123/fractal-explorer/commits/master/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z" />
+          </svg>
+          View full changelog on GitHub
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
+      </section>
+    </div>
+  );
+}
+
+function ChangeItem({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2 text-sm text-gray-300">
+      <svg className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      </svg>
+      {children}
+    </li>
+  );
+}
+
 function AboutContent() {
   return (
     <div className="space-y-6">
@@ -208,7 +288,7 @@ function AboutContent() {
           </svg>
         </div>
         <h3 className="text-xl font-bold text-gray-100">Fractal Voyager</h3>
-        <p className="text-sm text-gray-400 mt-1">Version 1.1</p>
+        <p className="text-sm text-gray-400 mt-1">Version 1.2</p>
       </section>
 
       {/* Description */}
