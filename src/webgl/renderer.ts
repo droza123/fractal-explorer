@@ -1,4 +1,4 @@
-import type { ViewBounds, RenderMode, FractalType, Complex, Camera3D, MandelbulbParams, LightingParams, RenderQuality, PrecisionMode } from '../types';
+import type { ViewBounds, RenderMode, FractalType, Complex, Camera3D, MandelbulbParams, LightingParams, RenderQuality, PrecisionMode, ColorFactors3D } from '../types';
 import vertexShaderSource from './shaders/vertex.glsl?raw';
 import mandelbrotShaderSource from './shaders/mandelbrot.glsl?raw';
 import juliaShaderSource from './shaders/julia.glsl?raw';
@@ -40,6 +40,12 @@ interface MandelbulbUniforms {
   palette: WebGLUniformLocation | null;
   paletteSize: WebGLUniformLocation | null;
   colorOffset: WebGLUniformLocation | null;
+  // Color factor weights
+  colorIterFactor: WebGLUniformLocation | null;
+  colorPosFactor: WebGLUniformLocation | null;
+  colorNormalFactor: WebGLUniformLocation | null;
+  colorRadialFactor: WebGLUniformLocation | null;
+  // Lighting
   lightDir: WebGLUniformLocation | null;
   ambient: WebGLUniformLocation | null;
   diffuse: WebGLUniformLocation | null;
@@ -373,6 +379,11 @@ export class WebGLRenderer {
       palette: this.gl.getUniformLocation(program, 'u_palette'),
       paletteSize: this.gl.getUniformLocation(program, 'u_paletteSize'),
       colorOffset: this.gl.getUniformLocation(program, 'u_colorOffset'),
+      // Color factor weights
+      colorIterFactor: this.gl.getUniformLocation(program, 'u_colorIterFactor'),
+      colorPosFactor: this.gl.getUniformLocation(program, 'u_colorPosFactor'),
+      colorNormalFactor: this.gl.getUniformLocation(program, 'u_colorNormalFactor'),
+      colorRadialFactor: this.gl.getUniformLocation(program, 'u_colorRadialFactor'),
       lightDir: this.gl.getUniformLocation(program, 'u_lightDir'),
       ambient: this.gl.getUniformLocation(program, 'u_ambient'),
       diffuse: this.gl.getUniformLocation(program, 'u_diffuse'),
@@ -617,7 +628,8 @@ export class WebGLRenderer {
     quality: RenderQuality,
     maxIterations: number,
     colorOffset: number = 0,
-    equation3dId: number = 1
+    equation3dId: number = 1,
+    colorFactors: ColorFactors3D = { iteration: 1, position: 1, normal: 1, radial: 1 }
   ): void {
     if (!this.gl || !this.mandelbulbProgram) return;
 
@@ -695,6 +707,12 @@ export class WebGLRenderer {
       this.gl.uniform1i(uniforms.paletteSize, this.paletteSize);
     }
     this.gl.uniform1f(uniforms.colorOffset, colorOffset);
+
+    // Color factor weights for enriched coloring
+    this.gl.uniform1f(uniforms.colorIterFactor, colorFactors.iteration);
+    this.gl.uniform1f(uniforms.colorPosFactor, colorFactors.position);
+    this.gl.uniform1f(uniforms.colorNormalFactor, colorFactors.normal);
+    this.gl.uniform1f(uniforms.colorRadialFactor, colorFactors.radial);
 
     // Lighting parameters
     // Calculate light direction in camera/view space first

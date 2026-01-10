@@ -16,6 +16,7 @@ export function Mandelbulb3D() {
     mandelbulbParams,
     lightingParams,
     renderQuality,
+    colorFactors3D,
     equation3dId,
     rotateCamera3D,
     zoomCamera3D,
@@ -128,8 +129,8 @@ export function Mandelbulb3D() {
 
     rendererRef.current.setFractalType('mandelbulb');
     rendererRef.current.setPalette(shaderPalette);
-    rendererRef.current.render3D(camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, 0, equation3dId);
-  }, [camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, shaderPalette, contextLost, renderKey, canvasSize, equation3dId]);
+    rendererRef.current.render3D(camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, 0, equation3dId, colorFactors3D);
+  }, [camera3D, mandelbulbParams, lightingParams, renderQuality, colorFactors3D, maxIterations, shaderPalette, contextLost, renderKey, canvasSize, equation3dId]);
 
   const getCanvasCoords = useCallback((e: React.MouseEvent) => {
     const canvas = canvasRef.current;

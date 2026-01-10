@@ -25,6 +25,12 @@ uniform vec3 u_palette[64];
 uniform int u_paletteSize;
 uniform float u_colorOffset;
 
+// Color factor weights for enriched coloring
+uniform float u_colorIterFactor;    // Iteration-based weight
+uniform float u_colorPosFactor;     // Position-based weight
+uniform float u_colorNormalFactor;  // Normal-based weight
+uniform float u_colorRadialFactor;  // Radial distance-based weight
+
 // Lighting
 uniform vec3 u_lightDir;
 uniform float u_ambient;
@@ -586,12 +592,35 @@ float ambientOcclusion(vec3 pos, vec3 nor) {
 
 // Get color from palette
 vec3 getColor(float t) {
-    float palettePos = fract(t * 2.0 + u_colorOffset) * float(u_paletteSize - 1);
+    float palettePos = fract(t + u_colorOffset) * float(u_paletteSize - 1);
     int index = int(palettePos);
     float blend = fract(palettePos);
     vec3 color1 = u_palette[index];
     vec3 color2 = u_palette[min(index + 1, u_paletteSize - 1)];
     return mix(color1, color2, blend);
+}
+
+// Get enriched color using multiple factors for better palette coverage
+vec3 getEnrichedColor(float iterations, vec3 pos, vec3 normal) {
+    // Factor 1: Iteration-based (cycles through palette based on escape time)
+    float iterFactor = iterations * 0.05 * u_colorIterFactor;
+
+    // Factor 2: Position-based (creates spatial color bands)
+    // Use a combination of position components for interesting patterns
+    float posFactor = dot(pos, vec3(1.0, 0.618, 0.382)) * 0.8 * u_colorPosFactor;
+
+    // Factor 3: Normal-based (varies color by surface orientation)
+    // Map normal direction to a value - surfaces facing different directions get different colors
+    float normalFactor = (normal.x * 0.5 + normal.y * 0.3 + normal.z * 0.4 + 1.5) * 0.3 * u_colorNormalFactor;
+
+    // Factor 4: Radial distance from origin (creates concentric color zones)
+    float radialFactor = length(pos) * 0.4 * u_colorRadialFactor;
+
+    // Combine factors to create rich color variation
+    float colorIndex = iterFactor + posFactor + normalFactor * 0.5 + radialFactor * 0.3;
+
+    // Use fract to wrap around the palette multiple times
+    return getColor(fract(colorIndex));
 }
 
 // ==========================================
@@ -660,10 +689,8 @@ vec4 rayMarch(vec3 ro, vec3 rd) {
             float spec = pow(max(dot(normal, halfDir), 0.0), u_shininess);
             vec3 specular = vec3(u_specular) * spec * shadow;
 
-            // Get base color from iterations - use fixed scaling to maintain color variety
-            // regardless of maxIterations setting
-            float colorT = fract(iterations * 0.04);
-            vec3 baseColor = getColor(colorT);
+            // Get enriched color using multiple factors for better palette coverage
+            vec3 baseColor = getEnrichedColor(iterations, pos, normal);
 
             // Combine lighting with base color
             vec3 color = baseColor * (ambient + diffuse) + specular;

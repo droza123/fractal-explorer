@@ -28,7 +28,7 @@ const DEFAULT_CAMERA_3D: Camera3D = {
   distance: 4.0,
   rotationX: 0.3,      // Pitch: slight elevation angle
   rotationY: 0.4,      // Yaw: slight horizontal rotation for better initial view
-  fov: 60,
+  fov: 90,
 };
 
 const DEFAULT_MANDELBULB_PARAMS: MandelbulbParams = {
@@ -48,10 +48,19 @@ const DEFAULT_LIGHTING_PARAMS: LightingParams = {
 };
 
 const DEFAULT_RENDER_QUALITY: RenderQuality = {
-  maxSteps: 256,
-  shadowSteps: 32,
-  aoSamples: 5,
-  detailLevel: 0.3,  // Higher detail default for solid Mandelbox rendering
+  maxSteps: 512,
+  shadowSteps: 64,
+  aoSamples: 8,
+  detailLevel: 0.2,  // "High" quality preset as default
+};
+
+import type { ColorFactors3D } from '../types';
+
+const DEFAULT_COLOR_FACTORS_3D: ColorFactors3D = {
+  iteration: 1.0,   // Iteration-based coloring weight
+  position: 0.3,    // Position-based color bands weight (subtle by default)
+  normal: 1.0,      // Normal/orientation-based color weight
+  radial: 1.0,      // Radial distance-based color weight
 };
 
 // Detail levels shifted: old "High" (0.3) is now "Low", allows finer detail
@@ -225,6 +234,7 @@ export const useFractalStore = create<FractalStore>()(
   mandelbulbParams: { ...DEFAULT_MANDELBULB_PARAMS },
   lightingParams: { ...DEFAULT_LIGHTING_PARAMS },
   renderQuality: { ...DEFAULT_RENDER_QUALITY },
+  colorFactors3D: { ...DEFAULT_COLOR_FACTORS_3D },
   equation3dId: 1, // Default to Mandelbulb
   showEquation3DSelector: false,
   renderQuality2D: { ...DEFAULT_RENDER_QUALITY_2D },
@@ -243,7 +253,7 @@ export const useFractalStore = create<FractalStore>()(
   // UI Collapsed States (default to expanded)
   toolbarCollapsed: false,
   toolbarWidth: getResponsiveToolbarWidth(),  // Responsive default based on screen size
-  qualityCollapsed: false,
+  qualityCollapsed: false,  // Open by default for 2D modes
   savedJuliasCollapsed: false,
   infoCollapsed: false,
   // Animation System
@@ -260,6 +270,11 @@ export const useFractalStore = create<FractalStore>()(
   videoExportAbortController: null as AbortController | null,
   // Animation UI
   animationPanelCollapsed: true,
+  // 3D panel collapsed states
+  cameraCollapsed: false,
+  colorFactorsCollapsed: false,
+  lightingCollapsed: true,  // Collapsed by default
+  quality3DCollapsed: true,  // Collapsed by default for 3D
   // Saved items dialogs
   showSavedAnimationsDialog: false,
   showSavedJuliasDialog: false,
@@ -865,51 +880,15 @@ export const useFractalStore = create<FractalStore>()(
     const { camera3D } = get();
     const sensitivity = 0.005;
 
-    const pitch = camera3D.rotationX;
-    const yaw = camera3D.rotationY;
+    // Simple turntable rotation - directly manipulate angles
+    // This avoids all the vector math that can cause flashing at limits
 
-    const cosPitch = Math.cos(pitch);
-    const sinPitch = Math.sin(pitch);
-    const cosYaw = Math.cos(yaw);
-    const sinYaw = Math.sin(yaw);
+    // Horizontal drag: rotate around world Y axis (no limits, wraps around)
+    let newYaw = camera3D.rotationY - deltaX * sensitivity;
 
-    // Current camera direction (from origin to camera, normalized)
-    let camDir = [cosPitch * sinYaw, sinPitch, cosPitch * cosYaw];
-
-    // Camera's right axis (always horizontal)
-    const right = [cosYaw, 0, -sinYaw];
-
-    // Rodrigues' rotation formula: rotate vector v around axis by angle
-    const rotateVector = (v: number[], axis: number[], angle: number): number[] => {
-      const c = Math.cos(angle);
-      const s = Math.sin(angle);
-      const dot = v[0] * axis[0] + v[1] * axis[1] + v[2] * axis[2];
-      const cross = [
-        axis[1] * v[2] - axis[2] * v[1],
-        axis[2] * v[0] - axis[0] * v[2],
-        axis[0] * v[1] - axis[1] * v[0],
-      ];
-      return [
-        v[0] * c + cross[0] * s + axis[0] * dot * (1 - c),
-        v[1] * c + cross[1] * s + axis[1] * dot * (1 - c),
-        v[2] * c + cross[2] * s + axis[2] * dot * (1 - c),
-      ];
-    };
-
-    // Vertical drag: rotate around camera's right axis
-    const pitchAngle = -deltaY * sensitivity;
-    camDir = rotateVector(camDir, right, pitchAngle);
-
-    // Horizontal drag: rotate around world Y (turntable mode)
-    const yawAngle = -deltaX * sensitivity;
-    camDir = rotateVector(camDir, [0, 1, 0], yawAngle);
-
-    // Extract new pitch and yaw from camera direction
-    let newPitch = Math.asin(Math.max(-1, Math.min(1, camDir[1])));
-    let newYaw = Math.atan2(camDir[0], camDir[2]);
-
-    // Clamp pitch to prevent going past ±90° (avoids gimbal lock)
+    // Vertical drag: pitch up/down with hard clamp at ±90°
     const maxPitch = Math.PI / 2 - 0.01;
+    let newPitch = camera3D.rotationX + deltaY * sensitivity;
     newPitch = Math.max(-maxPitch, Math.min(maxPitch, newPitch));
 
     set({
@@ -936,7 +915,13 @@ export const useFractalStore = create<FractalStore>()(
   },
 
   resetCamera3D: () => {
-    set({ camera3D: { ...DEFAULT_CAMERA_3D } });
+    // Only reset rotation values, keep current distance and FOV
+    const { camera3D } = get();
+    set({ camera3D: {
+      ...camera3D,
+      rotationX: DEFAULT_CAMERA_3D.rotationX,
+      rotationY: DEFAULT_CAMERA_3D.rotationY
+    } });
   },
 
   setMandelbulbPower: (power) => {
@@ -965,6 +950,15 @@ export const useFractalStore = create<FractalStore>()(
 
   setQualityPreset: (preset) => {
     set({ renderQuality: { ...QUALITY_PRESETS[preset] } });
+  },
+
+  setColorFactors3D: (factors) => {
+    const { colorFactors3D } = get();
+    set({ colorFactors3D: { ...colorFactors3D, ...factors } });
+  },
+
+  resetColorFactors3D: () => {
+    set({ colorFactors3D: { ...DEFAULT_COLOR_FACTORS_3D } });
   },
 
   setEquation3DId: (id) => {
@@ -1093,6 +1087,7 @@ export const useFractalStore = create<FractalStore>()(
         mandelbulbParams: state.mandelbulbParams,
         lightingParams: state.lightingParams,
         renderQuality: state.renderQuality,
+        colorFactors3D: state.colorFactors3D,
         onProgress: (progress: ExportProgress) => {
           set({ exportProgress: progress });
         },
@@ -1124,6 +1119,12 @@ export const useFractalStore = create<FractalStore>()(
   setSavedJuliasCollapsed: (collapsed) => set({ savedJuliasCollapsed: collapsed }),
   setInfoCollapsed: (collapsed) => set({ infoCollapsed: collapsed }),
 
+  // 3D panel collapsed states
+  setCameraCollapsed: (collapsed) => set({ cameraCollapsed: collapsed }),
+  setColorFactorsCollapsed: (collapsed) => set({ colorFactorsCollapsed: collapsed }),
+  setLightingCollapsed: (collapsed) => set({ lightingCollapsed: collapsed }),
+  setQuality3DCollapsed: (collapsed) => set({ quality3DCollapsed: collapsed }),
+
   // Animation System actions
   setAnimationPanelCollapsed: (collapsed) => set({ animationPanelCollapsed: collapsed }),
 
@@ -1154,6 +1155,8 @@ export const useFractalStore = create<FractalStore>()(
       camera3D: state.fractalType === 'mandelbulb' ? state.camera3D : undefined,
       mandelbulbParams: state.fractalType === 'mandelbulb' ? state.mandelbulbParams : undefined,
       equation3dId: state.fractalType === 'mandelbulb' ? state.equation3dId : undefined,
+      lightingParams: state.fractalType === 'mandelbulb' ? state.lightingParams : undefined,
+      colorFactors3D: state.fractalType === 'mandelbulb' ? state.colorFactors3D : undefined,
     };
 
     const hash = encodeStateToHash(shareableState);
@@ -1197,6 +1200,8 @@ export const useFractalStore = create<FractalStore>()(
       if (urlState.camera3D) updates.camera3D = urlState.camera3D;
       if (urlState.mandelbulbParams) updates.mandelbulbParams = urlState.mandelbulbParams;
       if (urlState.equation3dId) updates.equation3dId = urlState.equation3dId;
+      if (urlState.lightingParams) updates.lightingParams = urlState.lightingParams;
+      if (urlState.colorFactors3D) updates.colorFactors3D = urlState.colorFactors3D;
 
       // Apply the state from URL
       set(updates as Partial<FractalStore>);
@@ -1431,6 +1436,7 @@ export const useFractalStore = create<FractalStore>()(
         renderQuality2D: state.renderQuality2D,
         renderQuality: state.renderQuality,
         lightingParams: state.lightingParams,
+        colorFactors3D: state.colorFactors3D,
         // UI collapsed states
         toolbarCollapsed: state.toolbarCollapsed,
         toolbarWidth: state.toolbarWidth,
@@ -1438,6 +1444,10 @@ export const useFractalStore = create<FractalStore>()(
         savedJuliasCollapsed: state.savedJuliasCollapsed,
         infoCollapsed: state.infoCollapsed,
         animationPanelCollapsed: state.animationPanelCollapsed,
+        cameraCollapsed: state.cameraCollapsed,
+        colorFactorsCollapsed: state.colorFactorsCollapsed,
+        lightingCollapsed: state.lightingCollapsed,
+        quality3DCollapsed: state.quality3DCollapsed,
         // Persist current keyframes as working draft (thumbnails are ~3KB each, acceptable for localStorage)
         keyframes: state.keyframes,
       }),

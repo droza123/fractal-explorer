@@ -57,6 +57,14 @@ export interface RenderQuality {
   detailLevel: number;   // Step size multiplier (0.5=high detail, 1.0=fast)
 }
 
+// Color factor weights for 3D fractal coloring
+export interface ColorFactors3D {
+  iteration: number;     // Weight for iteration-based coloring (0-2)
+  position: number;      // Weight for position-based color bands (0-2)
+  normal: number;        // Weight for normal/orientation-based color (0-2)
+  radial: number;        // Weight for radial distance-based color (0-2)
+}
+
 // Precision mode for deep zoom
 export type PrecisionMode = 'auto' | 'standard' | 'high';
 
@@ -146,6 +154,7 @@ export interface FractalState {
   mandelbulbParams: MandelbulbParams;
   lightingParams: LightingParams;
   renderQuality: RenderQuality;
+  colorFactors3D: ColorFactors3D;
   equation3dId: number;
   showEquation3DSelector: boolean;
   // 2D quality settings
@@ -183,6 +192,11 @@ export interface FractalState {
   videoExportAbortController: AbortController | null;
   // Animation UI
   animationPanelCollapsed: boolean;
+  // 3D panel collapsed states
+  cameraCollapsed: boolean;
+  colorFactorsCollapsed: boolean;
+  lightingCollapsed: boolean;
+  quality3DCollapsed: boolean;
   // Saved items dialogs
   showSavedAnimationsDialog: boolean;
   showSavedJuliasDialog: boolean;
@@ -264,6 +278,8 @@ export interface FractalActions {
   resetLighting: () => void;
   setRenderQuality: (quality: Partial<RenderQuality>) => void;
   setQualityPreset: (preset: 'low' | 'medium' | 'high' | 'ultra') => void;
+  setColorFactors3D: (factors: Partial<ColorFactors3D>) => void;
+  resetColorFactors3D: () => void;
   setEquation3DId: (id: number) => void;
   setShowEquation3DSelector: (show: boolean) => void;
   // 2D quality actions
@@ -287,6 +303,11 @@ export interface FractalActions {
   setQualityCollapsed: (collapsed: boolean) => void;
   setSavedJuliasCollapsed: (collapsed: boolean) => void;
   setInfoCollapsed: (collapsed: boolean) => void;
+  // 3D panel collapsed states
+  setCameraCollapsed: (collapsed: boolean) => void;
+  setColorFactorsCollapsed: (collapsed: boolean) => void;
+  setLightingCollapsed: (collapsed: boolean) => void;
+  setQuality3DCollapsed: (collapsed: boolean) => void;
   // Animation System actions
   setAnimationPanelCollapsed: (collapsed: boolean) => void;
   addKeyframe: () => void;

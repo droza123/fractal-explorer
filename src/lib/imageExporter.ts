@@ -1,4 +1,4 @@
-import type { ViewBounds, Complex, Camera3D, MandelbulbParams, LightingParams, RenderQuality, ExportSettings, ExportProgress, FractalType } from '../types';
+import type { ViewBounds, Complex, Camera3D, MandelbulbParams, LightingParams, RenderQuality, ExportSettings, ExportProgress, FractalType, ColorFactors3D } from '../types';
 import { WebGLRenderer } from '../webgl/renderer';
 import { PRESET_PALETTES, generateShaderPalette, applyTemperatureToPalette } from './colors';
 import type { RGB } from './colors';
@@ -20,6 +20,7 @@ export interface ExportOptions {
   mandelbulbParams: MandelbulbParams;
   lightingParams: LightingParams;
   renderQuality: RenderQuality;
+  colorFactors3D: ColorFactors3D;
   onProgress: (progress: ExportProgress) => void;
   abortSignal: AbortSignal;
 }
@@ -197,7 +198,7 @@ async function render3DDirect(
   outputCanvas: HTMLCanvasElement
 ): Promise<void> {
   const { exportSettings, camera3D, mandelbulbParams, lightingParams,
-          renderQuality, maxIterations, paletteId, colorTemperature,
+          renderQuality, colorFactors3D, maxIterations, paletteId, colorTemperature,
           customPalettes, onProgress, abortSignal } = options;
 
   const { width, height } = exportSettings;
@@ -254,7 +255,9 @@ async function render3DDirect(
       lightingParams,
       exportQuality,
       maxIterations,
-      0 // colorOffset
+      0, // colorOffset
+      1, // equation3dId (default)
+      colorFactors3D
     );
 
     onProgress({

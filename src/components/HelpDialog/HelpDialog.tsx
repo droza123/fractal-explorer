@@ -177,7 +177,7 @@ function FeaturesContent() {
       <FeatureSection
         title="3D Fractals"
         color="orange"
-        description="Explore 10 different 3D fractal types: Mandelbulb, Mandelbox, Quaternion Julia, Burning Ship 3D, Tricorn 3D, Menger Sponge, Sierpinski Tetrahedron, Kaleidoscopic IFS, Octahedron IFS, and Icosahedron IFS. Each has unique parameters for power, scale, and camera settings. Adjust lighting and quality for stunning renders."
+        description="Explore 10 different 3D fractal types: Mandelbulb, Mandelbox, Quaternion Julia, Burning Ship 3D, Tricorn 3D, Menger Sponge, Sierpinski Tetrahedron, Kaleidoscopic IFS, Octahedron IFS, and Icosahedron IFS. Each has unique parameters for power, scale, and camera settings. Customize colors with palettes and color factors (iteration, position, normal, radial). Adjust lighting and quality for stunning renders."
       />
 
       <FeatureSection
@@ -195,7 +195,7 @@ function FeaturesContent() {
       <FeatureSection
         title="Sharing & Export"
         color="pink"
-        description="Share your current view with a URL link that captures all settings. Export high-resolution images of any fractal. Choose from multiple color palettes with temperature adjustment."
+        description="Share your current view with a URL link that captures all settings including 3D camera, lighting, and colors. Export high-resolution images of any fractal. Choose from multiple color palettes with temperature adjustment."
       />
     </div>
   );
@@ -204,11 +204,25 @@ function FeaturesContent() {
 function WhatsNewContent() {
   return (
     <div className="space-y-6">
+      {/* Version 1.3 */}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-semibold rounded">v1.3</span>
+          <span className="text-xs text-gray-500">Latest</span>
+        </div>
+        <ul className="space-y-2">
+          <ChangeItem>3D Color Factors: Adjust iteration, position, normal, and radial color weights</ChangeItem>
+          <ChangeItem>Collapsible 3D toolbars: Camera, Color Factors, and Lighting panels</ChangeItem>
+          <ChangeItem>Enhanced 3D URL sharing: Includes lighting and color factor settings</ChangeItem>
+          <ChangeItem>Improved 3D camera controls with smooth rotation limits</ChangeItem>
+          <ChangeItem>Reorganized 3D UI: Power/Scale in Equation toolbar, standardized reset buttons</ChangeItem>
+        </ul>
+      </section>
+
       {/* Version 1.2 */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs font-semibold rounded">v1.2</span>
-          <span className="text-xs text-gray-500">Latest</span>
+          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded">v1.2</span>
         </div>
         <ul className="space-y-2">
           <ChangeItem>10 different 3D fractal equations with selector UI</ChangeItem>
@@ -219,7 +233,7 @@ function WhatsNewContent() {
       {/* Version 1.1 */}
       <section>
         <div className="flex items-center gap-2 mb-3">
-          <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded">v1.1</span>
+          <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 text-xs font-semibold rounded">v1.1</span>
         </div>
         <ul className="space-y-2">
           <ChangeItem>URL sharing for fractal views</ChangeItem>
@@ -288,7 +302,7 @@ function AboutContent() {
           </svg>
         </div>
         <h3 className="text-xl font-bold text-gray-100">Fractal Voyager</h3>
-        <p className="text-sm text-gray-400 mt-1">Version 1.2</p>
+        <p className="text-sm text-gray-400 mt-1">Version 1.3</p>
       </section>
 
       {/* Description */}

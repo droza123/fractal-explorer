@@ -37,6 +37,17 @@ export function Toolbar() {
     setLightingParams,
     resetCamera3D,
     resetLighting,
+    colorFactors3D,
+    setColorFactors3D,
+    resetColorFactors3D,
+    cameraCollapsed,
+    setCameraCollapsed,
+    colorFactorsCollapsed,
+    setColorFactorsCollapsed,
+    lightingCollapsed,
+    setLightingCollapsed,
+    quality3DCollapsed,
+    setQuality3DCollapsed,
     setRenderQuality,
     setQualityPreset,
     setRenderQuality2D,
@@ -615,7 +626,7 @@ export function Toolbar() {
         </div>
       )}
 
-      {/* 3D Fractal Equation Selector */}
+      {/* 3D Fractal Equation Selector with Power/Scale */}
       {fractalType === 'mandelbulb' && (() => {
         const currentEquation3d = getEquation3D(equation3dId);
         return (
@@ -630,296 +641,474 @@ export function Toolbar() {
                 <span className="text-gray-400 text-xs">Eq #{equation3dId}:</span>{' '}
                 <span className="text-gray-200">{currentEquation3d?.label}</span>
               </button>
+
+              {/* Power slider - only for equations with hasPower */}
+              {currentEquation3d?.hasPower && (() => {
+                // Use different range for low-power fractals (Burning Ship, Tricorn)
+                const isLowPowerFractal = (currentEquation3d.defaultPower ?? 8) <= 2;
+                const minPower = isLowPowerFractal ? 1.5 : 2;
+                const maxPower = isLowPowerFractal ? 6 : 16;
+                return (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-400 w-12 cursor-help" title="Power exponent: Controls the fractal's shape. Higher values create more complex structures">Power:</label>
+                    <input
+                      type="range"
+                      min={minPower}
+                      max={maxPower}
+                      step="0.1"
+                      value={mandelbulbParams.power}
+                      onChange={(e) => setMandelbulbPower(parseFloat(e.target.value))}
+                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <span className="text-xs text-gray-400 w-8 text-right">{mandelbulbParams.power.toFixed(1)}</span>
+                    <button
+                      onClick={() => setMandelbulbPower(currentEquation3d.defaultPower ?? 8)}
+                      className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                      title={`Reset power to ${currentEquation3d.defaultPower ?? 8}`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              {/* Scale slider - only for equations with hasScale (Mandelbox, Kaleidoscopic, IFS) */}
+              {currentEquation3d?.hasScale && (() => {
+                // IFS fractals work best in positive scale range, Mandelbox works with -3 to 3
+                const isPositiveScaleOnly = equation3dId === 8 || equation3dId === 9 || equation3dId === 10;
+                const minScale = isPositiveScaleOnly ? 1.0 : -3.0;
+                const maxScale = 3.0;
+                return (
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-400 w-12 cursor-help" title="Scale factor: Controls the self-similarity ratio of the fractal">Scale:</label>
+                    <input
+                      type="range"
+                      min={minScale}
+                      max={maxScale}
+                      step="0.05"
+                      value={mandelbulbParams.scale ?? 2.0}
+                      onChange={(e) => {
+                        useFractalStore.setState({ mandelbulbParams: { ...mandelbulbParams, scale: parseFloat(e.target.value) } });
+                      }}
+                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <span className="text-xs text-gray-400 w-8 text-right">{(mandelbulbParams.scale ?? 2.0).toFixed(2)}</span>
+                    <button
+                      onClick={() => {
+                        useFractalStore.setState({ mandelbulbParams: { ...mandelbulbParams, scale: currentEquation3d.defaultScale ?? 2.0 } });
+                      }}
+                      className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                      title={`Reset scale to ${currentEquation3d.defaultScale ?? 2.0}`}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         );
       })()}
 
-      {/* 3D Mandelbulb controls */}
-      {fractalType === 'mandelbulb' && (() => {
-        const currentEquation3d = getEquation3D(equation3dId);
-        return (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
-          <div className="flex flex-col gap-2">
-            {/* Power slider - only for equations with hasPower */}
-            {currentEquation3d?.hasPower && (() => {
-              // Use different range for low-power fractals (Burning Ship, Tricorn)
-              const isLowPowerFractal = (currentEquation3d.defaultPower ?? 8) <= 2;
-              const minPower = isLowPowerFractal ? 1.5 : 2;
-              const maxPower = isLowPowerFractal ? 6 : 16;
-              return (
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-12 cursor-help" title="Power exponent: Controls the fractal's shape. Higher values create more complex structures">Power:</label>
-              <input
-                type="range"
-                min={minPower}
-                max={maxPower}
-                step="0.1"
-                value={mandelbulbParams.power}
-                onChange={(e) => setMandelbulbPower(parseFloat(e.target.value))}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-400 w-8 text-right">{mandelbulbParams.power.toFixed(1)}</span>
-              <button
-                onClick={() => setMandelbulbPower(currentEquation3d.defaultPower ?? 8)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title={`Reset power to ${currentEquation3d.defaultPower ?? 8}`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-              );
-            })()}
-
-            {/* Scale slider - only for equations with hasScale (Mandelbox, Kaleidoscopic, IFS) */}
-            {currentEquation3d?.hasScale && (() => {
-              // IFS fractals work best in positive scale range, Mandelbox works with -3 to 3
-              const isPositiveScaleOnly = equation3dId === 8 || equation3dId === 9 || equation3dId === 10;
-              const minScale = isPositiveScaleOnly ? 1.0 : -3.0;
-              const maxScale = 3.0;
-              return (
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-12 cursor-help" title="Scale factor: Controls the self-similarity ratio of the fractal">Scale:</label>
-              <input
-                type="range"
-                min={minScale}
-                max={maxScale}
-                step="0.05"
-                value={mandelbulbParams.scale ?? 2.0}
-                onChange={(e) => {
-                  useFractalStore.setState({ mandelbulbParams: { ...mandelbulbParams, scale: parseFloat(e.target.value) } });
-                }}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-400 w-8 text-right">{(mandelbulbParams.scale ?? 2.0).toFixed(2)}</span>
-              <button
-                onClick={() => {
-                  useFractalStore.setState({ mandelbulbParams: { ...mandelbulbParams, scale: currentEquation3d.defaultScale ?? 2.0 } });
-                }}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title={`Reset scale to ${currentEquation3d.defaultScale ?? 2.0}`}
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-              );
-            })()}
-
-            {/* Distance slider */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-12 cursor-help" title="Camera distance: Move closer or farther from the fractal">Dist:</label>
-              <input
-                type="range"
-                min="1.2"
-                max="5"
-                step="0.1"
-                value={camera3D.distance}
-                onChange={(e) => setCamera3D({ distance: parseFloat(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-400 w-8 text-right">{camera3D.distance.toFixed(1)}</span>
-              <button
-                onClick={() => setCamera3D({ distance: 4.0 })}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset distance to default"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-
-            {/* FOV slider */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-12 cursor-help" title="Field of View: Lower values zoom in (telephoto), higher values show more (wide angle)">FOV:</label>
-              <input
-                type="range"
-                min="20"
-                max="120"
-                step="1"
-                value={camera3D.fov}
-                onChange={(e) => setFov(parseInt(e.target.value))}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-400 w-8 text-right">{camera3D.fov}°</span>
-              <button
-                onClick={() => setFov(60)}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset FOV to 60°"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Rotation reset */}
-            <div className="flex items-center justify-end pt-1">
-              <button
-                onClick={resetCamera3D}
-                className="px-2 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset camera rotation to default view"
-              >
-                Reset Rotation
-              </button>
-            </div>
-          </div>
-        </div>
-        );
-      })()}
-
-      {/* Lighting controls - only in 3D mode */}
+      {/* Camera controls - collapsible */}
       {fractalType === 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-300 font-medium">Lighting</span>
-            <button
-              onClick={resetLighting}
-              className="px-2 py-0.5 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 transition-colors"
-              title="Reset all lighting settings"
-            >
-              Reset All
-            </button>
-          </div>
-          <div className="flex flex-col gap-2">
-            {/* Ambient */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-14 cursor-help" title="Ambient light: Base illumination that affects all surfaces equally, even in shadow">Ambient:</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={lightingParams.ambient}
-                onChange={(e) => setLightingParams({ ambient: parseFloat(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.ambient * 100).toFixed(0)}%</span>
-              <button
-                onClick={() => setLightingParams({ ambient: 0.15 })}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset ambient to 15%"
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+          {/* Collapsible header */}
+          <button
+            onClick={() => setCameraCollapsed(!cameraCollapsed)}
+            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-1 text-sm text-gray-300 font-medium">
+              <svg
+                className={`w-3 h-3 transition-transform ${cameraCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
               >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Camera
             </div>
-
-            {/* Diffuse */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-14 cursor-help" title="Diffuse light: Soft, matte lighting that depends on surface angle to the light source">Diffuse:</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={lightingParams.diffuse}
-                onChange={(e) => setLightingParams({ diffuse: parseFloat(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.diffuse * 100).toFixed(0)}%</span>
-              <button
-                onClick={() => setLightingParams({ diffuse: 0.8 })}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset diffuse to 80%"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Specular */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-14 cursor-help" title="Specular highlight: Bright reflections that create a shiny appearance">Specular:</label>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.01"
-                value={lightingParams.specular}
-                onChange={(e) => setLightingParams({ specular: parseFloat(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.specular * 100).toFixed(0)}%</span>
-              <button
-                onClick={() => setLightingParams({ specular: 0.5 })}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset specular to 50%"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Shininess */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-400 w-14 cursor-help" title="Shininess: Controls how tight the specular highlights are. Higher = smaller, sharper reflections">Shiny:</label>
-              <input
-                type="range"
-                min="1"
-                max="128"
-                step="1"
-                value={lightingParams.shininess}
-                onChange={(e) => setLightingParams({ shininess: parseFloat(e.target.value) })}
-                className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-              />
-              <span className="text-xs text-gray-500 w-8 text-right">{lightingParams.shininess.toFixed(0)}</span>
-              <button
-                onClick={() => setLightingParams({ shininess: 32 })}
-                className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                title="Reset shininess to 32"
-              >
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Light Direction */}
-            <div className="border-t border-gray-700 pt-2 mt-1">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-gray-400 cursor-help" title="Controls the position of the light source">Light Direction</span>
+            <span className="text-xs text-gray-500">
+              D:{camera3D.distance.toFixed(1)} FOV:{camera3D.fov}°
+            </span>
+          </button>
+          {!cameraCollapsed && (
+            <div className="px-3 pb-3 flex flex-col gap-2">
+              {/* Distance slider */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-gray-400 w-12 cursor-help" title="Camera distance: Move closer or farther from the fractal">Dist:</label>
+                <input
+                  type="range"
+                  min="1.2"
+                  max="5"
+                  step="0.1"
+                  value={camera3D.distance}
+                  onChange={(e) => setCamera3D({ distance: parseFloat(e.target.value) })}
+                  className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                />
+                <span className="text-xs text-gray-400 w-8 text-right">{camera3D.distance.toFixed(1)}</span>
                 <button
-                  onClick={() => setLightingParams({ lightAngleX: 0.5, lightAngleY: 0.8 })}
+                  onClick={() => setCamera3D({ distance: 4.0 })}
                   className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                  title="Reset light direction"
+                  title="Reset distance to default"
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 </button>
               </div>
+
+              {/* FOV slider */}
               <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 w-6 cursor-help" title="Horizontal angle: Rotates light around the fractal">H:</label>
+                <label className="text-xs text-gray-400 w-12 cursor-help" title="Field of View: Lower values zoom in (telephoto), higher values show more (wide angle)">FOV:</label>
                 <input
                   type="range"
-                  min="-3.14"
-                  max="3.14"
-                  step="0.05"
-                  value={lightingParams.lightAngleX}
-                  onChange={(e) => setLightingParams({ lightAngleX: parseFloat(e.target.value) })}
+                  min="20"
+                  max="120"
+                  step="1"
+                  value={camera3D.fov}
+                  onChange={(e) => setFov(parseInt(e.target.value))}
                   className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                 />
-                <label className="text-xs text-gray-500 w-6 ml-1 cursor-help" title="Vertical angle: Raises or lowers the light source">V:</label>
-                <input
-                  type="range"
-                  min="-1.5"
-                  max="1.5"
-                  step="0.05"
-                  value={lightingParams.lightAngleY}
-                  onChange={(e) => setLightingParams({ lightAngleY: parseFloat(e.target.value) })}
-                  className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                />
+                <span className="text-xs text-gray-400 w-8 text-right">{camera3D.fov}°</span>
+                <button
+                  onClick={() => setFov(90)}
+                  className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                  title="Reset FOV to 90°"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Reset Rotation button at bottom */}
+              <div className="flex items-center justify-end pt-1">
+                <button
+                  onClick={resetCamera3D}
+                  className="px-2 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                  title="Reset camera rotation to default view"
+                >
+                  Reset Rotation
+                </button>
               </div>
             </div>
-          </div>
+          )}
+        </div>
+      )}
+
+      {/* Color Factors - only in 3D mode */}
+      {fractalType === 'mandelbulb' && (
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+          {/* Collapsible header */}
+          <button
+            onClick={() => setColorFactorsCollapsed(!colorFactorsCollapsed)}
+            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-1 text-sm text-gray-300 font-medium">
+              <svg
+                className={`w-3 h-3 transition-transform ${colorFactorsCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Color Factors
+            </div>
+            <span className="text-xs text-gray-500">
+              I:{colorFactors3D.iteration.toFixed(1)} P:{colorFactors3D.position.toFixed(1)} N:{colorFactors3D.normal.toFixed(1)} R:{colorFactors3D.radial.toFixed(1)}
+            </span>
+          </button>
+          {!colorFactorsCollapsed && (
+            <div className="px-3 pb-3 flex flex-col gap-2">
+                {/* Iteration */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Iteration factor: Colors based on how many iterations before escape. Creates detail-based coloring.">Iteration:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.05"
+                    value={colorFactors3D.iteration}
+                    onChange={(e) => setColorFactors3D({ iteration: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.iteration.toFixed(2)}</span>
+                  <button
+                    onClick={() => setColorFactors3D({ iteration: 1.0 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset iteration factor to 1.0"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Position */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Position factor: Creates diagonal color bands (rainbow effect) across the fractal surface based on 3D position. Set to 0 to disable the rainbow effect.">Position:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.05"
+                    value={colorFactors3D.position}
+                    onChange={(e) => setColorFactors3D({ position: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.position.toFixed(2)}</span>
+                  <button
+                    onClick={() => setColorFactors3D({ position: 0.3 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset position factor to 0.3"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Normal */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Normal factor: Colors based on surface orientation. Surfaces facing different directions get different colors.">Normal:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.05"
+                    value={colorFactors3D.normal}
+                    onChange={(e) => setColorFactors3D({ normal: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.normal.toFixed(2)}</span>
+                  <button
+                    onClick={() => setColorFactors3D({ normal: 1.0 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset normal factor to 1.0"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Radial */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Radial factor: Creates concentric color zones based on distance from the origin.">Radial:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="2"
+                    step="0.05"
+                    value={colorFactors3D.radial}
+                    onChange={(e) => setColorFactors3D({ radial: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.radial.toFixed(2)}</span>
+                  <button
+                    onClick={() => setColorFactors3D({ radial: 1.0 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset radial factor to 1.0"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Reset All button at bottom */}
+                <div className="flex items-center justify-end pt-1">
+                  <button
+                    onClick={resetColorFactors3D}
+                    className="px-2 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset all color factors to defaults"
+                  >
+                    Reset All
+                  </button>
+                </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lighting controls - only in 3D mode */}
+      {fractalType === 'mandelbulb' && (
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
+          {/* Collapsible header */}
+          <button
+            onClick={() => setLightingCollapsed(!lightingCollapsed)}
+            className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
+          >
+            <div className="flex items-center gap-1 text-sm text-gray-300 font-medium">
+              <svg
+                className={`w-3 h-3 transition-transform ${lightingCollapsed ? '' : 'rotate-90'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+              Lighting
+            </div>
+            <span className="text-xs text-gray-500">
+              A:{(lightingParams.ambient * 100).toFixed(0)}% D:{(lightingParams.diffuse * 100).toFixed(0)}% S:{(lightingParams.specular * 100).toFixed(0)}%
+            </span>
+          </button>
+          {!lightingCollapsed && (
+            <div className="px-3 pb-3 flex flex-col gap-2">
+                {/* Ambient */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Ambient light: Base illumination that affects all surfaces equally, even in shadow">Ambient:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={lightingParams.ambient}
+                    onChange={(e) => setLightingParams({ ambient: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.ambient * 100).toFixed(0)}%</span>
+                  <button
+                    onClick={() => setLightingParams({ ambient: 0.15 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset ambient to 15%"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Diffuse */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Diffuse light: Soft, matte lighting that depends on surface angle to the light source">Diffuse:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={lightingParams.diffuse}
+                    onChange={(e) => setLightingParams({ diffuse: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.diffuse * 100).toFixed(0)}%</span>
+                  <button
+                    onClick={() => setLightingParams({ diffuse: 0.8 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset diffuse to 80%"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Specular */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Specular highlight: Bright reflections that create a shiny appearance">Specular:</label>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={lightingParams.specular}
+                    onChange={(e) => setLightingParams({ specular: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{(lightingParams.specular * 100).toFixed(0)}%</span>
+                  <button
+                    onClick={() => setLightingParams({ specular: 0.5 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset specular to 50%"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Shininess */}
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-400 w-14 cursor-help" title="Shininess: Controls how tight the specular highlights are. Higher = smaller, sharper reflections">Shiny:</label>
+                  <input
+                    type="range"
+                    min="1"
+                    max="128"
+                    step="1"
+                    value={lightingParams.shininess}
+                    onChange={(e) => setLightingParams({ shininess: parseFloat(e.target.value) })}
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  />
+                  <span className="text-xs text-gray-500 w-8 text-right">{lightingParams.shininess.toFixed(0)}</span>
+                  <button
+                    onClick={() => setLightingParams({ shininess: 32 })}
+                    className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset shininess to 32"
+                  >
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Light Direction */}
+                <div className="border-t border-gray-700 pt-2 mt-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-400 cursor-help" title="Controls the position of the light source">Light Direction</span>
+                    <button
+                      onClick={() => setLightingParams({ lightAngleX: 0.5, lightAngleY: 0.8 })}
+                      className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                      title="Reset light direction"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs text-gray-500 w-6 cursor-help" title="Horizontal angle: Rotates light around the fractal">H:</label>
+                    <input
+                      type="range"
+                      min="-3.14"
+                      max="3.14"
+                      step="0.05"
+                      value={lightingParams.lightAngleX}
+                      onChange={(e) => setLightingParams({ lightAngleX: parseFloat(e.target.value) })}
+                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <label className="text-xs text-gray-500 w-6 ml-1 cursor-help" title="Vertical angle: Raises or lowers the light source">V:</label>
+                    <input
+                      type="range"
+                      min="-1.5"
+                      max="1.5"
+                      step="0.05"
+                      value={lightingParams.lightAngleY}
+                      onChange={(e) => setLightingParams({ lightAngleY: parseFloat(e.target.value) })}
+                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Reset All button at bottom */}
+                <div className="flex items-center justify-end pt-1">
+                  <button
+                    onClick={resetLighting}
+                    className="px-2 py-1 rounded text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Reset all lighting settings"
+                  >
+                    Reset All
+                  </button>
+                </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -928,12 +1117,12 @@ export function Toolbar() {
         <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-700/50">
           {/* Collapsible header */}
           <button
-            onClick={() => setQualityCollapsed(!qualityCollapsed)}
+            onClick={() => setQuality3DCollapsed(!quality3DCollapsed)}
             className="w-full flex items-center justify-between p-2 hover:bg-gray-800/50 rounded-lg transition-colors"
           >
             <div className="flex items-center gap-1 text-sm text-gray-300 font-medium">
               <svg
-                className={`w-3 h-3 transition-transform ${qualityCollapsed ? '' : 'rotate-90'}`}
+                className={`w-3 h-3 transition-transform ${quality3DCollapsed ? '' : 'rotate-90'}`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -952,7 +1141,7 @@ export function Toolbar() {
             </span>
           </button>
           {/* Collapsible content */}
-          {!qualityCollapsed && (
+          {!quality3DCollapsed && (
             <div className="px-3 pb-3 flex flex-col gap-2">
               {/* Iterations */}
               <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import type { FractalType, ViewBounds, Complex, Camera3D, MandelbulbParams } from '../types';
+import type { FractalType, ViewBounds, Complex, Camera3D, MandelbulbParams, LightingParams, ColorFactors3D } from '../types';
 
 // Schema version for future compatibility
 const SCHEMA_VERSION = 1;
@@ -35,6 +35,8 @@ export interface ShareableState {
   camera3D?: Camera3D;
   mandelbulbParams?: MandelbulbParams;
   equation3dId?: number;
+  lightingParams?: LightingParams;
+  colorFactors3D?: ColorFactors3D;
 }
 
 /**
@@ -82,6 +84,16 @@ export function encodeStateToHash(state: ShareableState): string {
     // 3D equation ID
     if (state.equation3dId !== undefined) {
       params.set('3e', state.equation3dId.toString());
+    }
+    // Lighting params
+    if (state.lightingParams) {
+      const l = state.lightingParams;
+      params.set('3l', `${l.ambient}_${l.diffuse}_${l.specular}_${l.shininess}_${l.lightAngleX}_${l.lightAngleY}`);
+    }
+    // Color factors
+    if (state.colorFactors3D) {
+      const cf = state.colorFactors3D;
+      params.set('3c', `${cf.iteration}_${cf.position}_${cf.normal}_${cf.radial}`);
     }
   }
 
@@ -178,11 +190,11 @@ export function decodeHashToState(hash: string): Partial<ShareableState> | null 
       }
     }
 
-    // 3D camera
+    // 3D camera (>= 4 for forward compatibility with future params)
     const cam3d = params.get('3d');
     if (cam3d) {
       const parts = cam3d.split('_').map(parseFloat);
-      if (parts.length === 4 && parts.every(n => !isNaN(n) && isFinite(n))) {
+      if (parts.length >= 4 && parts.slice(0, 4).every(n => !isNaN(n) && isFinite(n))) {
         state.camera3D = {
           distance: parts[0],
           rotationX: parts[1],
@@ -210,8 +222,38 @@ export function decodeHashToState(hash: string): Partial<ShareableState> | null 
     const eq3d = params.get('3e');
     if (eq3d) {
       const parsed = parseInt(eq3d, 10);
-      if (!isNaN(parsed) && parsed > 0 && parsed <= 8) {
+      if (!isNaN(parsed) && parsed > 0 && parsed <= 10) {
         state.equation3dId = parsed;
+      }
+    }
+
+    // 3D lighting params (>= 6 for forward compatibility with future params)
+    const light3d = params.get('3l');
+    if (light3d) {
+      const parts = light3d.split('_').map(parseFloat);
+      if (parts.length >= 6 && parts.slice(0, 6).every(n => !isNaN(n) && isFinite(n))) {
+        state.lightingParams = {
+          ambient: parts[0],
+          diffuse: parts[1],
+          specular: parts[2],
+          shininess: parts[3],
+          lightAngleX: parts[4],
+          lightAngleY: parts[5]
+        };
+      }
+    }
+
+    // 3D color factors (>= 4 for forward compatibility with future params)
+    const colorFactors = params.get('3c');
+    if (colorFactors) {
+      const parts = colorFactors.split('_').map(parseFloat);
+      if (parts.length >= 4 && parts.slice(0, 4).every(n => !isNaN(n) && isFinite(n))) {
+        state.colorFactors3D = {
+          iteration: parts[0],
+          position: parts[1],
+          normal: parts[2],
+          radial: parts[3]
+        };
       }
     }
 
