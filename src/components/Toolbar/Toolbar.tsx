@@ -1121,39 +1121,52 @@ export function Toolbar() {
 
                 {/* Light Direction */}
                 <div className="border-t border-gray-700 pt-2 mt-1">
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="mb-1">
                     <span className="text-xs text-gray-400 cursor-help" title="Controls the position of the light source">Light Direction</span>
-                    <button
-                      onClick={() => setLightingParams({ lightAngleX: 0.5, lightAngleY: 0.8 })}
-                      className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
-                      title="Reset light direction"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs text-gray-500 w-6 cursor-help" title="Horizontal angle: Rotates light around the fractal">H:</label>
-                    <input
-                      type="range"
-                      min="-3.14"
-                      max="3.14"
-                      step="0.05"
-                      value={lightingParams.lightAngleX}
-                      onChange={(e) => setLightingParams({ lightAngleX: parseFloat(e.target.value) })}
-                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                    />
-                    <label className="text-xs text-gray-500 w-6 ml-1 cursor-help" title="Vertical angle: Raises or lowers the light source">V:</label>
-                    <input
-                      type="range"
-                      min="-1.5"
-                      max="1.5"
-                      step="0.05"
-                      value={lightingParams.lightAngleY}
-                      onChange={(e) => setLightingParams({ lightAngleY: parseFloat(e.target.value) })}
-                      className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                    />
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500 w-6 cursor-help" title="Horizontal angle: Rotates light around the fractal">H:</label>
+                      <input
+                        type="range"
+                        min="-3.14"
+                        max="3.14"
+                        step="0.05"
+                        value={lightingParams.lightAngleX}
+                        onChange={(e) => setLightingParams({ lightAngleX: parseFloat(e.target.value) })}
+                        className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                      />
+                      <button
+                        onClick={() => setLightingParams({ lightAngleX: 0.5 })}
+                        className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                        title="Reset horizontal angle to 0.5"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-gray-500 w-6 cursor-help" title="Vertical angle: Raises or lowers the light source">V:</label>
+                      <input
+                        type="range"
+                        min="-1.5"
+                        max="1.5"
+                        step="0.05"
+                        value={lightingParams.lightAngleY}
+                        onChange={(e) => setLightingParams({ lightAngleY: parseFloat(e.target.value) })}
+                        className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                      />
+                      <button
+                        onClick={() => setLightingParams({ lightAngleY: 0.8 })}
+                        className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                        title="Reset vertical angle to 0.8"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
