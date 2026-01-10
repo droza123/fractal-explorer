@@ -87,6 +87,9 @@ export function useTouchGestures(
     const element = elementRef.current;
     if (!element) return;
 
+    // Prevent iOS Safari's default touch behaviors (scrolling, rubber-banding)
+    e.preventDefault();
+
     const state = stateRef.current;
     const touches = e.touches;
     const mode = optionsRef.current.singleFingerMode || 'pan';
@@ -131,12 +134,14 @@ export function useTouchGestures(
     const element = elementRef.current;
     if (!element) return;
 
+    // Prevent iOS Safari's default touch behaviors (scrolling, rubber-banding)
+    e.preventDefault();
+
     const state = stateRef.current;
     const touches = e.touches;
     const mode = optionsRef.current.singleFingerMode || 'pan';
 
     if (state.isPinching && touches.length === 2) {
-      e.preventDefault();
 
       const currentDistance = getDistance(touches[0], touches[1]);
       const scale = currentDistance / state.initialPinchDistance;

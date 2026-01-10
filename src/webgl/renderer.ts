@@ -697,10 +697,16 @@ export class WebGLRenderer {
     this.gl.uniform1f(uniforms.colorOffset, colorOffset);
 
     // Lighting parameters
-    // Calculate light direction from angles
-    const lightX = Math.cos(lighting.lightAngleY) * Math.sin(lighting.lightAngleX);
-    const lightY = Math.sin(lighting.lightAngleY);
-    const lightZ = Math.cos(lighting.lightAngleY) * Math.cos(lighting.lightAngleX);
+    // Calculate light direction in camera/view space first
+    const lightCamX = Math.cos(lighting.lightAngleY) * Math.sin(lighting.lightAngleX);
+    const lightCamY = Math.sin(lighting.lightAngleY);
+    const lightCamZ = Math.cos(lighting.lightAngleY) * Math.cos(lighting.lightAngleX);
+
+    // Transform light direction from camera space to world space
+    // This makes the light follow the camera view (like a headlamp)
+    const lightX = right[0] * lightCamX + up[0] * lightCamY + (-forward[0]) * lightCamZ;
+    const lightY = right[1] * lightCamX + up[1] * lightCamY + (-forward[1]) * lightCamZ;
+    const lightZ = right[2] * lightCamX + up[2] * lightCamY + (-forward[2]) * lightCamZ;
     this.gl.uniform3f(uniforms.lightDir, lightX, lightY, lightZ);
     this.gl.uniform1f(uniforms.ambient, lighting.ambient);
     this.gl.uniform1f(uniforms.diffuse, lighting.diffuse);

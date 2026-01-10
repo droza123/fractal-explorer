@@ -864,11 +864,59 @@ export const useFractalStore = create<FractalStore>()(
   rotateCamera3D: (deltaX, deltaY) => {
     const { camera3D } = get();
     const sensitivity = 0.005;
+
+    const pitch = camera3D.rotationX;
+    const yaw = camera3D.rotationY;
+
+    const cosPitch = Math.cos(pitch);
+    const sinPitch = Math.sin(pitch);
+    const cosYaw = Math.cos(yaw);
+    const sinYaw = Math.sin(yaw);
+
+    // Current camera direction (from origin to camera, normalized)
+    let camDir = [cosPitch * sinYaw, sinPitch, cosPitch * cosYaw];
+
+    // Camera's right axis (always horizontal)
+    const right = [cosYaw, 0, -sinYaw];
+
+    // Rodrigues' rotation formula: rotate vector v around axis by angle
+    const rotateVector = (v: number[], axis: number[], angle: number): number[] => {
+      const c = Math.cos(angle);
+      const s = Math.sin(angle);
+      const dot = v[0] * axis[0] + v[1] * axis[1] + v[2] * axis[2];
+      const cross = [
+        axis[1] * v[2] - axis[2] * v[1],
+        axis[2] * v[0] - axis[0] * v[2],
+        axis[0] * v[1] - axis[1] * v[0],
+      ];
+      return [
+        v[0] * c + cross[0] * s + axis[0] * dot * (1 - c),
+        v[1] * c + cross[1] * s + axis[1] * dot * (1 - c),
+        v[2] * c + cross[2] * s + axis[2] * dot * (1 - c),
+      ];
+    };
+
+    // Vertical drag: rotate around camera's right axis
+    const pitchAngle = -deltaY * sensitivity;
+    camDir = rotateVector(camDir, right, pitchAngle);
+
+    // Horizontal drag: rotate around world Y (turntable mode)
+    const yawAngle = -deltaX * sensitivity;
+    camDir = rotateVector(camDir, [0, 1, 0], yawAngle);
+
+    // Extract new pitch and yaw from camera direction
+    let newPitch = Math.asin(Math.max(-1, Math.min(1, camDir[1])));
+    let newYaw = Math.atan2(camDir[0], camDir[2]);
+
+    // Clamp pitch to prevent going past ±90° (avoids gimbal lock)
+    const maxPitch = Math.PI / 2 - 0.01;
+    newPitch = Math.max(-maxPitch, Math.min(maxPitch, newPitch));
+
     set({
       camera3D: {
         ...camera3D,
-        rotationY: camera3D.rotationY - deltaX * sensitivity,
-        rotationX: camera3D.rotationX + deltaY * sensitivity,
+        rotationX: newPitch,
+        rotationY: newYaw,
       },
     });
   },

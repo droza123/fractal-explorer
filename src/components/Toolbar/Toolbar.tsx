@@ -1106,7 +1106,7 @@ export function Toolbar() {
                     <div>Right-drag to pan</div>
                     <div>Scroll to zoom</div>
                     {fractalType === 'mandelbrot' && <div>Dbl-click for Julia</div>}
-                    {fractalType === 'julia' && <div>Space to save</div>}
+                    {fractalType === 'julia' && <div>+ button to save</div>}
                   </div>
                 )}
               </div>

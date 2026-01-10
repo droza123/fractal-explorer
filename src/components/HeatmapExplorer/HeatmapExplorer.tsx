@@ -531,6 +531,34 @@ export function HeatmapExplorer() {
     touchPinchStartBoundsRef.current = null;
   }, [setViewBoundsWithZoom, viewBounds]);
 
+  // Handle two-finger pan for panning while pinching (in explore mode)
+  const handleTouchTwoFingerPan = useCallback((deltaX: number, deltaY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const bounds = touchPinchStartBoundsRef.current;
+    if (!bounds) return;
+
+    const realRange = bounds.maxReal - bounds.minReal;
+    const imagRange = bounds.maxImag - bounds.minImag;
+
+    // Convert pixel delta to complex delta
+    // Negative for X: moving right shows more to the right (bounds shift left)
+    // Positive for Y: moving down shows more above (bounds shift up in complex plane)
+    const deltaReal = -(deltaX / canvas.width) * realRange;
+    const deltaImag = (deltaY / canvas.height) * imagRange;
+
+    const newBounds: ViewBounds = {
+      minReal: bounds.minReal + deltaReal,
+      maxReal: bounds.maxReal + deltaReal,
+      minImag: bounds.minImag + deltaImag,
+      maxImag: bounds.maxImag + deltaImag,
+    };
+
+    setViewBoundsWithZoom(newBounds, false);
+    touchPinchStartBoundsRef.current = newBounds;
+  }, [setViewBoundsWithZoom]);
+
   const handleTouchDoubleTap = useCallback((x: number, y: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -579,10 +607,11 @@ export function HeatmapExplorer() {
   useTouchGestures(containerRef as React.RefObject<HTMLElement>, {
     onSingleFingerMove: handleTouchSingleFingerMove,
     onPinchStart: handleTouchPinchStart,
-    onPinchMove: handleTouchPinchMove, // Handles both zoom and pan in one calculation
+    onPinchMove: handleTouchPinchMove,
     onPinchEnd: handleTouchPinchEnd,
     onDoubleTap: handleTouchDoubleTap,
     onSingleTap: handleTouchSingleTap,
+    onTwoFingerPanMove: handleTouchTwoFingerPan,
   }, { singleFingerMode: 'explore' });
 
   return (

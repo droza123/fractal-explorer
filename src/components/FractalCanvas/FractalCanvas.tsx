@@ -586,6 +586,23 @@ export function FractalCanvas() {
           )}
         </div>
       )}
+      {/* FAB for saving Julia */}
+      {fractalType === 'julia' && (
+        <button
+          onClick={() => saveCurrentJulia()}
+          className="absolute w-14 h-14 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-full shadow-lg flex items-center justify-center transition-colors z-10 group"
+          style={{ bottom: '15px', right: '15px' }}
+          aria-label="Save Julia"
+        >
+          <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          {/* Tooltip */}
+          <span className="absolute right-full mr-3 px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            Save Julia (Space)
+          </span>
+        </button>
+      )}
     </div>
   );
 }

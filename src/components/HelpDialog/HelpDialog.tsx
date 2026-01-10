@@ -114,7 +114,8 @@ function HowToUseContent() {
           <ControlRow action="Zoom in" control="Scroll wheel up or draw selection box" />
           <ControlRow action="Zoom out" control="Scroll wheel down" />
           <ControlRow action="Pan" control="Right-click and drag" />
-          <ControlRow action="Open Julia set" control="Double-click" />
+          <ControlRow action="Open Julia set (Mandelbrot/Heatmap)" control="Double-click" />
+          <ControlRow action="Save Julia" control="Click + button" />
         </div>
       </section>
 
@@ -124,7 +125,8 @@ function HowToUseContent() {
         <div className="space-y-2">
           <ControlRow action="Pan" control="One-finger drag" />
           <ControlRow action="Zoom" control="Pinch with two fingers" />
-          <ControlRow action="Open Julia set" control="Double-tap" />
+          <ControlRow action="Open Julia set (Mandelbrot/Heatmap)" control="Double-tap" />
+          <ControlRow action="Save Julia" control="Tap + button" />
           <ControlRow action="Preview Julia (Heatmap)" control="One-finger drag explores, two-finger pans" />
         </div>
       </section>
@@ -133,8 +135,8 @@ function HowToUseContent() {
       <section>
         <h3 className="text-sm font-semibold text-green-400 uppercase tracking-wide mb-3">Keyboard Shortcuts</h3>
         <div className="space-y-2">
-          <ControlRow action="Quick save Julia" control="Spacebar" />
-          <ControlRow action="Freeze preview" control="Hold Ctrl (in Heatmap mode)" />
+          <ControlRow action="Save Julia" control="Spacebar" />
+          <ControlRow action="Freeze preview (Heatmap)" control="Hold Ctrl" />
         </div>
       </section>
 

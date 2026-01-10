@@ -20,7 +20,7 @@ export const equations3d: Equation3D[] = [
     hasPower: true,
     defaultPower: 8,
     defaultDistance: 4.0,
-    defaultFov: 60,
+    defaultFov: 90,
   },
   {
     id: 2,
@@ -39,7 +39,7 @@ export const equations3d: Equation3D[] = [
     description: "Julia set in quaternion space, sliced to 3D",
     // No hasPower - uses fixed c value, not adjustable power
     defaultDistance: 4.0,
-    defaultFov: 60,
+    defaultFov: 90,
   },
   {
     id: 4,
