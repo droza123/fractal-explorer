@@ -51,6 +51,9 @@ export function Mandelbulb3D() {
   const [renderKey, setRenderKey] = useState(0); // Used to trigger re-renders after context restoration
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
+  // RAF-based render throttling - batches rapid updates to one render per frame
+  const rafIdRef = useRef<number | null>(null);
+
   // 3D always uses WebGL, so clear the high precision flag
   useEffect(() => {
     setHighPrecisionActive(false);
@@ -122,14 +125,42 @@ export function Mandelbulb3D() {
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Render the 3D fractal
+  // Render the 3D fractal with RAF throttling
+  // This batches rapid slider updates so slow devices don't queue up dozens of renders
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !rendererRef.current || contextLost) return;
+    const renderer = rendererRef.current;
+    if (!canvas || !renderer || contextLost) return;
 
-    rendererRef.current.setFractalType('mandelbulb');
-    rendererRef.current.setPalette(shaderPalette);
-    rendererRef.current.render3D(camera3D, mandelbulbParams, lightingParams, renderQuality, maxIterations, 0, equation3dId, colorFactors3D);
+    // Cancel any pending RAF to avoid stale renders
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+
+    // Schedule render on next animation frame
+    // This coalesces multiple rapid state updates into a single render
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      renderer.setFractalType('mandelbulb');
+      renderer.setPalette(shaderPalette);
+      renderer.render3D(
+        camera3D,
+        mandelbulbParams,
+        lightingParams,
+        renderQuality,
+        maxIterations,
+        0,
+        equation3dId,
+        colorFactors3D
+      );
+    });
+
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
   }, [camera3D, mandelbulbParams, lightingParams, renderQuality, colorFactors3D, maxIterations, shaderPalette, contextLost, renderKey, canvasSize, equation3dId]);
 
   const getCanvasCoords = useCallback((e: React.MouseEvent) => {

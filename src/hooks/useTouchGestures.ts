@@ -87,6 +87,14 @@ export function useTouchGestures(
     const element = elementRef.current;
     if (!element) return;
 
+    // Check if touch target is an interactive element (button, link, etc.)
+    // If so, let the native touch-to-click behavior work
+    const target = e.target as HTMLElement;
+    const isInteractive = target.closest('button, a, [role="button"], input, select, textarea');
+    if (isInteractive) {
+      return; // Let native click handling work
+    }
+
     // Prevent iOS Safari's default touch behaviors (scrolling, rubber-banding)
     e.preventDefault();
 

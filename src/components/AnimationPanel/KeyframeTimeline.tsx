@@ -106,6 +106,26 @@ export function KeyframeTimeline() {
     setDropTargetIndex(null);
   };
 
+  // Handle drop zone at the end (for dropping after the last keyframe)
+  const handleEndZoneDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedIndex !== null && draggedIndex !== keyframes.length - 1) {
+      setDropTargetIndex(keyframes.length); // Use length as sentinel for "end"
+    }
+  };
+
+  const handleEndZoneDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const sourceIndex = draggedIndex;
+    if (sourceIndex !== null && sourceIndex !== keyframes.length - 1) {
+      // Move to end (last position)
+      reorderKeyframes(sourceIndex, keyframes.length - 1);
+    }
+    setDraggedIndex(null);
+    setDropTargetIndex(null);
+  };
+
   return (
     <div className="flex flex-col gap-2">
       {/* Timeline strip */}
@@ -180,6 +200,24 @@ export function KeyframeTimeline() {
             )}
           </div>
         ))}
+
+        {/* Expanded drop zone after the last keyframe */}
+        {draggedIndex !== null && (
+          <div
+            onDragOver={handleEndZoneDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleEndZoneDrop}
+            className={`flex-1 min-w-[60px] h-10 flex items-center justify-center rounded border-2 border-dashed transition-all ${
+              dropTargetIndex === keyframes.length
+                ? 'border-blue-500 bg-blue-500/20'
+                : 'border-gray-600 bg-gray-800/30'
+            }`}
+          >
+            {dropTargetIndex === keyframes.length && (
+              <span className="text-xs text-blue-400 pointer-events-none">Drop here</span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Selected keyframe editor */}

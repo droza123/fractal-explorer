@@ -71,6 +71,19 @@ export function FractalCanvas() {
   const [panStartBounds, setPanStartBounds] = useState<typeof viewBounds | null>(null);
   const renderDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // RAF-based throttling for WebGL rendering - batches rapid updates to one render per frame
+  const webglRafIdRef = useRef<number | null>(null);
+  const pendingWebGLRenderRef = useRef<{
+    viewBounds: ViewBounds;
+    maxIterations: number;
+    fractalType: string;
+    juliaConstant: { real: number; imag: number };
+    equationId: number;
+    antiAlias: number;
+    precisionMode: 'auto' | 'standard' | 'high';
+    shaderPalette: ReturnType<typeof generateShaderPalette>;
+  } | null>(null);
+
   // Touch gesture state
   const touchPanStartBoundsRef = useRef<ViewBounds | null>(null);
   const touchPinchStartBoundsRef = useRef<ViewBounds | null>(null);
@@ -181,20 +194,44 @@ export function FractalCanvas() {
     }
 
     if (!shouldUseCanvas2D && renderMode === 'webgl' && rendererRef.current) {
-      // WebGL rendering - immediate (fast enough)
+      // WebGL rendering with RAF throttling
       // Hide CPU canvas when switching to WebGL
       setShowCanvas2D(false);
-      rendererRef.current.setFractalType(fractalType);
-      rendererRef.current.setPalette(shaderPalette);
-      rendererRef.current.render(
+
+      // Store the latest render params
+      pendingWebGLRenderRef.current = {
         viewBounds,
         maxIterations,
-        0,
+        fractalType,
         juliaConstant,
         equationId,
-        renderQuality2D.antiAlias,
-        renderQuality2D.precisionMode
-      );
+        antiAlias: renderQuality2D.antiAlias,
+        precisionMode: renderQuality2D.precisionMode,
+        shaderPalette,
+      };
+
+      // If we already have a RAF scheduled, it will use the updated params
+      if (webglRafIdRef.current === null) {
+        // Schedule render on next animation frame
+        webglRafIdRef.current = requestAnimationFrame(() => {
+          webglRafIdRef.current = null;
+          const params = pendingWebGLRenderRef.current;
+          const renderer = rendererRef.current;
+          if (params && renderer) {
+            renderer.setFractalType(params.fractalType as 'mandelbrot' | 'julia' | 'heatmap' | 'mandelbulb');
+            renderer.setPalette(params.shaderPalette);
+            renderer.render(
+              params.viewBounds,
+              params.maxIterations,
+              0,
+              params.juliaConstant,
+              params.equationId,
+              params.antiAlias,
+              params.precisionMode
+            );
+          }
+        });
+      }
     } else if (shouldUseCanvas2D && canvas2D) {
       // Canvas 2D parallel rendering - debounced to avoid rendering intermediate zoom levels
       const ctx = canvas2D.getContext('2d');
@@ -239,10 +276,14 @@ export function FractalCanvas() {
       }
     }
 
-    // Cleanup debounce timer on unmount or dependency change
+    // Cleanup timers on unmount or dependency change
     return () => {
       if (renderDebounceRef.current) {
         clearTimeout(renderDebounceRef.current);
+      }
+      if (webglRafIdRef.current !== null) {
+        cancelAnimationFrame(webglRafIdRef.current);
+        webglRafIdRef.current = null;
       }
     };
   }, [viewBounds, maxIterations, renderMode, fractalType, juliaConstant, equationId, shaderPalette, renderQuality2D, contextLost, renderKey, canvasSize]);
@@ -399,17 +440,20 @@ export function FractalCanvas() {
     }
   }, [isDragging, isPanning, panStartBounds, setSelection, setViewBounds]);
 
-  // Register canvas for thumbnail generation in Julia mode
+  // Register canvas for thumbnail generation in 2D modes (Julia and Mandelbrot)
+  // Use the currently visible canvas (WebGL or CPU based on showCanvas2D)
   useEffect(() => {
-    if (fractalType === 'julia' && canvasRef.current) {
-      setThumbnailCanvas(canvasRef.current);
+    const is2DMode = fractalType === 'julia' || fractalType === 'mandelbrot';
+    const activeCanvas = showCanvas2D ? canvas2DRef.current : canvasRef.current;
+    if (is2DMode && activeCanvas) {
+      setThumbnailCanvas(activeCanvas);
     }
     return () => {
-      if (fractalType === 'julia') {
+      if (is2DMode) {
         setThumbnailCanvas(null);
       }
     };
-  }, [fractalType, setThumbnailCanvas]);
+  }, [fractalType, showCanvas2D, setThumbnailCanvas]);
 
   // Handle spacebar for quick save in Julia mode
   useEffect(() => {

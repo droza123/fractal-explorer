@@ -1,4 +1,4 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { useFractalStore } from '../../store/fractalStore';
 import { equations } from '../../lib/equations';
 import { getEquation3D } from '../../lib/equations3d';
@@ -105,16 +105,73 @@ export function Toolbar() {
     return (Math.log(clamped / MIN_ZOOM) / LOG_RATIO) * 100;
   };
 
+  // Local state for zoom slider - provides immediate visual feedback
+  // while debouncing store updates for slow devices
+  const [localZoomSlider, setLocalZoomSlider] = useState(() => zoomToSlider(juliaZoomFactor));
+  const [isZoomDragging, setIsZoomDragging] = useState(false);
+  const zoomDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastZoomUpdateRef = useRef<number>(0);
+
+  // Sync local slider with store when not dragging (e.g., reset button, external changes)
+  useEffect(() => {
+    if (!isZoomDragging) {
+      setLocalZoomSlider(zoomToSlider(juliaZoomFactor));
+    }
+  }, [juliaZoomFactor, isZoomDragging]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (zoomDebounceRef.current !== null) {
+        clearTimeout(zoomDebounceRef.current);
+      }
+    };
+  }, []);
+
   const handleZoomFactorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const sliderValue = parseFloat(e.target.value);
-    if (!isNaN(sliderValue)) {
+    if (isNaN(sliderValue)) return;
+
+    // Update local state immediately for responsive slider
+    setLocalZoomSlider(sliderValue);
+    setIsZoomDragging(true);
+
+    // Clear any pending debounce
+    if (zoomDebounceRef.current !== null) {
+      clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = null;
+    }
+
+    // Throttle: only update store if enough time has passed (adaptive rate limiting)
+    const now = performance.now();
+    const timeSinceLastUpdate = now - lastZoomUpdateRef.current;
+    const minInterval = 100; // Max ~10 updates per second
+
+    if (timeSinceLastUpdate >= minInterval) {
+      // Enough time has passed, update immediately
+      lastZoomUpdateRef.current = now;
       const zoomValue = sliderToZoom(sliderValue);
-      setJuliaZoomFactor(zoomValue, false); // Preview without saving to history
+      setJuliaZoomFactor(zoomValue, false);
+    } else {
+      // Too soon, schedule a debounced update
+      zoomDebounceRef.current = setTimeout(() => {
+        zoomDebounceRef.current = null;
+        lastZoomUpdateRef.current = performance.now();
+        const zoomValue = sliderToZoom(sliderValue);
+        setJuliaZoomFactor(zoomValue, false);
+      }, minInterval - timeSinceLastUpdate);
     }
   };
 
   const handleZoomFactorCommit = () => {
-    setJuliaZoomFactor(juliaZoomFactor, true); // Commit to history on release
+    // Cancel any pending debounce and commit final value
+    if (zoomDebounceRef.current !== null) {
+      clearTimeout(zoomDebounceRef.current);
+      zoomDebounceRef.current = null;
+    }
+    setIsZoomDragging(false);
+    const zoomValue = sliderToZoom(localZoomSlider);
+    setJuliaZoomFactor(zoomValue, true); // Commit to history on release
   };
 
   // Resize handle logic
@@ -165,10 +222,10 @@ export function Toolbar() {
   // Collapsed toolbar - show expand button and Julia Preview in heatmap mode
   if (toolbarCollapsed) {
     return (
-      <div className="absolute top-2 left-2 lg:top-4 lg:left-4 touch-manipulation flex flex-col gap-1.5 lg:gap-2">
+      <div className="absolute top-4 left-2 lg:left-4 touch-manipulation flex flex-col gap-2">
         <button
           onClick={() => setToolbarCollapsed(false)}
-          className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50 hover:bg-gray-800 transition-colors"
+          className="bg-gray-900/90 backdrop-blur-sm rounded-lg px-2 lg:px-3 py-3 shadow-lg border border-gray-700/50 hover:bg-gray-800 transition-colors"
           title="Show toolbar"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -187,7 +244,7 @@ export function Toolbar() {
 
   return (
     <div
-      className="absolute top-2 left-2 lg:top-4 lg:left-4"
+      className="absolute top-4 left-2 lg:left-4"
       style={{ width: `${toolbarWidth}px` }}
     >
       {/* Resize handle on right edge */}
@@ -198,9 +255,9 @@ export function Toolbar() {
         title="Drag to resize toolbar"
       />
       {/* Scrollable toolbar content */}
-      <div className="flex flex-col gap-1.5 lg:gap-2 touch-manipulation max-h-[calc(100vh-1rem)] lg:max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain toolbar-scroll">
+      <div className="flex flex-col gap-2 touch-manipulation max-h-[calc(100vh-2rem)] overflow-y-auto overscroll-contain toolbar-scroll">
       {/* Navigation and mode controls */}
-      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-1.5 lg:p-2 shadow-lg border border-gray-700/50">
+      <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg px-1.5 lg:px-2 py-2 shadow-lg border border-gray-700/50">
         {/* Row 1: Navigation and utility buttons */}
         <div className="flex items-center justify-between gap-1 mb-1.5">
           <div className="flex items-center gap-1">
@@ -342,7 +399,7 @@ export function Toolbar() {
 
       {/* Equation selector - available for Julia and Heatmap modes */}
       {(fractalType === 'julia' || fractalType === 'heatmap') && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg px-2 lg:px-3 py-3 shadow-lg border border-gray-700/50">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <button
@@ -383,7 +440,7 @@ export function Toolbar() {
 
       {/* Zoom slider - available for 2D modes */}
       {fractalType !== 'mandelbulb' && (
-        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
+        <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg px-2 lg:px-3 py-3 shadow-lg border border-gray-700/50">
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-300 whitespace-nowrap">Zoom:</label>
             <input
@@ -391,7 +448,7 @@ export function Toolbar() {
               min="0"
               max="100"
               step="0.1"
-              value={zoomToSlider(juliaZoomFactor)}
+              value={localZoomSlider}
               onChange={handleZoomFactorChange}
               onMouseUp={handleZoomFactorCommit}
               onTouchEnd={handleZoomFactorCommit}
@@ -399,7 +456,10 @@ export function Toolbar() {
                 fractalType === 'julia' ? 'accent-purple-500' : fractalType === 'heatmap' ? 'accent-orange-500' : 'accent-blue-500'
               }`}
             />
-            <span className="text-sm text-gray-400 w-12 text-right">{juliaZoomFactor < 10 ? juliaZoomFactor.toFixed(1) : Math.round(juliaZoomFactor)}x</span>
+            <span className="text-sm text-gray-400 w-12 text-right">{(() => {
+              const displayZoom = sliderToZoom(localZoomSlider);
+              return displayZoom < 10 ? displayZoom.toFixed(1) : Math.round(displayZoom);
+            })()}x</span>
             <button
               onClick={() => setJuliaZoomFactor(1.0, true)}
               className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
@@ -630,7 +690,7 @@ export function Toolbar() {
       {fractalType === 'mandelbulb' && (() => {
         const currentEquation3d = getEquation3D(equation3dId);
         return (
-          <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg p-2 lg:p-3 shadow-lg border border-gray-700/50">
+          <div className="bg-gray-900/90 backdrop-blur-sm rounded-lg px-2 lg:px-3 py-3 shadow-lg border border-gray-700/50">
             <div className="flex flex-col gap-2">
               {/* Equation selector button */}
               <button
@@ -837,7 +897,7 @@ export function Toolbar() {
                     step="0.05"
                     value={colorFactors3D.iteration}
                     onChange={(e) => setColorFactors3D({ iteration: parseFloat(e.target.value) })}
-                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.iteration.toFixed(2)}</span>
                   <button
@@ -861,7 +921,7 @@ export function Toolbar() {
                     step="0.05"
                     value={colorFactors3D.position}
                     onChange={(e) => setColorFactors3D({ position: parseFloat(e.target.value) })}
-                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.position.toFixed(2)}</span>
                   <button
@@ -885,7 +945,7 @@ export function Toolbar() {
                     step="0.05"
                     value={colorFactors3D.normal}
                     onChange={(e) => setColorFactors3D({ normal: parseFloat(e.target.value) })}
-                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.normal.toFixed(2)}</span>
                   <button
@@ -909,7 +969,7 @@ export function Toolbar() {
                     step="0.05"
                     value={colorFactors3D.radial}
                     onChange={(e) => setColorFactors3D({ radial: parseFloat(e.target.value) })}
-                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                    className="flex-1 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
                   />
                   <span className="text-xs text-gray-500 w-8 text-right">{colorFactors3D.radial.toFixed(2)}</span>
                   <button
