@@ -457,7 +457,15 @@ export function Toolbar() {
               }`}
             />
             <span className="text-sm text-gray-400 w-12 text-right">{(() => {
-              const displayZoom = sliderToZoom(localZoomSlider);
+              // Show actual zoom when not dragging (can exceed slider max of 1000x)
+              const displayZoom = isZoomDragging ? sliderToZoom(localZoomSlider) : juliaZoomFactor;
+              if (displayZoom >= 10000000000) {
+                return Math.round(displayZoom / 1000000000) + 'B';
+              } else if (displayZoom >= 10000000) {
+                return Math.round(displayZoom / 1000000) + 'M';
+              } else if (displayZoom >= 10000) {
+                return Math.round(displayZoom / 1000) + 'k';
+              }
               return displayZoom < 10 ? displayZoom.toFixed(1) : Math.round(displayZoom);
             })()}x</span>
             <button
